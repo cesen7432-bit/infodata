@@ -89,19 +89,23 @@ En el VPS, Apache expone la app bajo `https://apps-cecom.cloud/infodata/`:
 </Location>
 ```
 
-Apache **no** recorta el prefijo, así que la app tiene que servir todo bajo
-`/infodata`. Eso lo controla una sola variable:
+Con `ProxyPass` dentro de un `<Location>`, Apache **recorta** el prefijo: una
+petición a `/infodata/api/x` llega al backend como `/api/x`. Por eso el backend
+Express **no cambia** — sigue sirviendo en la raíz. Lo único que hay que ajustar
+es el build de la SPA, para que en el navegador los assets, el router de React y
+las llamadas a `/api` salgan con el prefijo `/infodata/`:
 
-- **`BASE_PATH=/infodata`** — hace que Express monte la API y la SPA en ese
-  prefijo (`docker-compose.yml` ya la fija para el contenedor `api`; para correr
-  sin Docker, ponela en el `.env`).
-- **`VITE_BASE_PATH=/infodata/`** (con barra final) — la SPA se compila con esa
-  base para que los assets, el router de React y las llamadas a `/api` salgan
-  con el prefijo. En Docker es un `build arg` (ya configurado en
-  `docker-compose.yml`); a mano: `VITE_BASE_PATH=/infodata/ npm run build` en `web/`.
+- **`VITE_BASE_PATH=/infodata/`** (con barra final) al compilar `web/`. En Docker
+  es un `build arg` ya configurado en `docker-compose.yml`; a mano:
+  `VITE_BASE_PATH=/infodata/ npm run build` dentro de `web/`.
 
-Con `BASE_PATH` vacío (default) la app se sirve en la raíz, como antes. Una
-petición a `/` se redirige a `/infodata/`.
+Flujo completo de una request:
+`navegador GET /infodata/api/x` → Apache recorta → `backend GET /api/x` → responde.
+
+Sin `VITE_BASE_PATH` la SPA se compila para la raíz, como antes.
+
+> Para que `…/infodata` (sin barra final) no falle, dejá que Apache agregue la
+> barra: `RedirectMatch ^/infodata$ /infodata/`.
 
 ## Endpoints
 

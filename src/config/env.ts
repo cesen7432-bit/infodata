@@ -5,19 +5,6 @@ const schema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
-  // Prefijo bajo el que se sirve la app cuando hay un proxy inverso que NO
-  // recorta la ruta (p. ej. Apache `<Location /infodata> ProxyPass ...`).
-  // Vacío = se sirve en la raíz. Se normaliza a "/infodata" (con barra inicial,
-  // sin barra final) para montar el router y comparar rutas.
-  BASE_PATH: z
-    .string()
-    .default("")
-    .transform((v) => {
-      const trimmed = v.trim().replace(/\/+$/, "");
-      if (!trimmed || trimmed === "/") return "";
-      return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-    }),
-
   DATABASE_URL: z.string().min(1, "DATABASE_URL es requerido"),
   REDIS_URL: z.string().min(1, "REDIS_URL es requerido"),
 

@@ -2,7 +2,6 @@ import path from "path";
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
-import { env } from "./config/env";
 import { authRouter } from "./auth/auth.routes";
 import { usersRouter } from "./users/users.routes";
 import { consultaRouter } from "./consulta/consulta.routes";
@@ -31,40 +30,27 @@ app.use(
   })
 );
 
-// Todo cuelga de este router. En producción, detrás de un proxy que no recorta
-// la ruta (Apache `<Location /infodata>`), se monta en BASE_PATH y la app
-// responde en "/infodata/..."; sin BASE_PATH se monta en la raíz.
-const router = express.Router();
-
-router.get("/health", (_req, res) => {
+app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-router.use("/api/auth", authRouter);
-router.use("/api/admin/users", usersRouter);
-router.use("/api/admin/api-keys", apiKeysRouter);
-router.use("/api/admin/consulta-masiva", bulkRouter);
-router.use("/api/consulta", consultaRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/admin/users", usersRouter);
+app.use("/api/admin/api-keys", apiKeysRouter);
+app.use("/api/admin/consulta-masiva", bulkRouter);
+app.use("/api/consulta", consultaRouter);
 
 // Estáticos de la SPA + fallback de rutas de cliente (React Router). Se
 // excluye solo lo que empieza con "/api/" (con la barra) — así una ruta de
 // API mal escrita sigue dando 404 JSON, pero una ruta de cliente como
 // "/api-keys" (que NO es "/api/...") se sirve como SPA sin problema.
-router.use(express.static(WEB_DIST));
-router.get(/^(?!\/api\/).*/, (req, res, next) => {
+app.use(express.static(WEB_DIST));
+app.get(/^(?!\/api\/).*/, (req, res, next) => {
   if (req.method !== "GET") return next();
   res.sendFile(path.join(WEB_DIST, "index.html"), (err) => {
     if (err) next();
   });
 });
-
-app.use(env.BASE_PATH || "/", router);
-
-// Con BASE_PATH, una petición fuera del prefijo (incluida la raíz "/") no
-// llega al router — la redirigimos al prefijo en vez de dar un 404 seco.
-if (env.BASE_PATH) {
-  app.get("/", (_req, res) => res.redirect(`${env.BASE_PATH}/`));
-}
 
 app.use((req, res) => {
   res.status(404).json({ error: `Ruta no encontrada: ${req.method} ${req.path}` });
