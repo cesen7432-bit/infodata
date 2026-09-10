@@ -4,6 +4,10 @@
 
 FROM node:20-alpine AS web-builder
 WORKDIR /web
+# Prefijo bajo el que se publica la SPA (ver docker-compose y README). Detrás
+# del proxy de Apache `<Location /infodata>` se pasa VITE_BASE_PATH=/infodata/.
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
 COPY web/package*.json ./
 RUN npm ci
 COPY web/ ./

@@ -78,6 +78,31 @@ docker compose logs api     # ahí sale el email/password del admin la primera v
 
 Levanta postgres, redis, `api` (aplica migraciones, siembra el admin si no existe, sirve la API y la SPA ya compilada en `:3000`) y `worker`. Entrá a `http://<tu-vps>:3000` y ahí está la interfaz — no hay puerto ni contenedor aparte para el frontend.
 
+### Detrás de un proxy inverso con subruta (`/infodata`)
+
+En el VPS, Apache expone la app bajo `https://apps-cecom.cloud/infodata/`:
+
+```apache
+<Location /infodata>
+    ProxyPass         http://127.0.0.1:3031
+    ProxyPassReverse  http://127.0.0.1:3031
+</Location>
+```
+
+Apache **no** recorta el prefijo, así que la app tiene que servir todo bajo
+`/infodata`. Eso lo controla una sola variable:
+
+- **`BASE_PATH=/infodata`** — hace que Express monte la API y la SPA en ese
+  prefijo (`docker-compose.yml` ya la fija para el contenedor `api`; para correr
+  sin Docker, ponela en el `.env`).
+- **`VITE_BASE_PATH=/infodata/`** (con barra final) — la SPA se compila con esa
+  base para que los assets, el router de React y las llamadas a `/api` salgan
+  con el prefijo. En Docker es un `build arg` (ya configurado en
+  `docker-compose.yml`); a mano: `VITE_BASE_PATH=/infodata/ npm run build` en `web/`.
+
+Con `BASE_PATH` vacío (default) la app se sirve en la raíz, como antes. Una
+petición a `/` se redirige a `/infodata/`.
+
 ## Endpoints
 
 ```
@@ -114,7 +139,8 @@ Para que un sistema externo consulte el expediente consolidado sin usar el login
 
 ```bash
 # la clave va en el header X-API-Key (o Authorization: Bearer dc_live_...)
-curl https://<host>:3031/api/consulta/0912345678 \
+# detrás del proxy la ruta lleva el prefijo: /infodata/api/consulta/...
+curl https://apps-cecom.cloud/infodata/api/consulta/0912345678 \
   -H "X-API-Key: dc_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 

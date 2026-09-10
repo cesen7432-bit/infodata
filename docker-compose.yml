@@ -34,12 +34,18 @@ services:
       retries: 10
 
   api:
-    build: .
+    build:
+      context: .
+      args:
+        # Debe coincidir con BASE_PATH de abajo, con barra final. Vacío/"/" = raíz.
+        VITE_BASE_PATH: /infodata/
+    image: expediente-unico:local
     restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgresql://expediente:expediente@postgres:5432/expediente_unico
       REDIS_URL: redis://redis:6379
+      BASE_PATH: /infodata
     ports:
       # Host 3031 -> contenedor 3000. Un solo puerto para todo: Express sirve
       # el build de React como estáticos desde el mismo proceso, no hay
@@ -55,7 +61,8 @@ services:
         condition: service_healthy
 
   worker:
-    build: .
+    # Misma imagen que `api` (la construye ese servicio) — el worker no usa la SPA.
+    image: expediente-unico:local
     restart: unless-stopped
     env_file: .env
     environment:

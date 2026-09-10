@@ -20,7 +20,9 @@ export class ApiError extends Error {
 /** Bajo nivel: nunca lanza por status — quien la llama decide qué códigos son "válidos". */
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<{ status: number; body: T | null }> {
   const token = getToken();
-  const res = await fetch(`/api${path}`, {
+  // import.meta.env.BASE_URL trae barra final (p. ej. "/infodata/" o "/"),
+  // así que la API queda en "/infodata/api/..." detrás del proxy de Apache.
+  const res = await fetch(`${import.meta.env.BASE_URL}api${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
