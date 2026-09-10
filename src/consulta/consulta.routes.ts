@@ -1,7 +1,9 @@
 import { Router } from "express";
+import { Source } from "@prisma/client";
 import { requireAuth, requireAuthOrApiKey } from "../auth/auth.middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { resolveConsulta } from "./consulta.service";
+import { toContactView } from "./contactView";
 import { getSourceHandler, SOURCE_SLUGS, ALL_SOURCES } from "../scrapers/registry";
 import { findIdentificationByPhone, findIdentificationByPlate, getConsolidatedPerson } from "../db/personRepository";
 import { getRecentSearches, recordSearch } from "./searchHistory.service";
@@ -25,13 +27,18 @@ consultaRouter.get(
  * Vista consolidada: dispara la cascada caché → BD → cola en las 5 fuentes en
  * paralelo y devuelve la persona con todos los hechos vigentes, cada uno ya
  * atribuido a su fuente (plan, sección 05). Cada búsqueda queda registrada
- * en el historial del usuario que la hizo (las consultas por API key no
- * registran historial — no hay usuario detrás).
+ * en el historial del usuario que la hizo.
+ *
+ * Con API key la respuesta es distinta: solo se consulta DataDiverService (o
+ * la base interna ya poblada por él) — ninguna otra fuente — y se devuelve un
+ * objeto reducido de identidad y contacto (ver `toContactView`). Estas
+ * consultas no registran historial (no hay usuario detrás).
  */
 consultaRouter.get(
   "/:identificacion",
   requireAuthOrApiKey,
   asyncHandler(async (req, res) => {
+    const apiKeyMode = !!req.apiKey;
     const rawInput = req.params.identificacion.trim();
     let identificacion = rawInput;
     let applicableSources = ALL_SOURCES.filter((source) => getSourceHandler(source).validateIdentification(identificacion));
@@ -67,6 +74,12 @@ consultaRouter.get(
       }
     }
 
+    // Por API key solo DataDiverService: es la única fuente de los datos de
+    // contacto y el único servicio externo permitido para este endpoint.
+    if (apiKeyMode) {
+      applicableSources = applicableSources.filter((source) => source === Source.DATADIVERSERVICE);
+    }
+
     const perSource = await Promise.allSettled(
       applicableSources.map(async (source) => ({ source, result: await resolveConsulta(source, identificacion) }))
     );
@@ -91,6 +104,15 @@ consultaRouter.get(
 
     const person = await getConsolidatedPerson(identificacion);
     if (req.user) await recordSearch(req.user.id, identificacion, !!person);
+
+    if (apiKeyMode) {
+      if (!person) {
+        res.status(404).json({ identification: identificacion, error: "No se encontró información para esa identificación" });
+        return;
+      }
+      res.json(toContactView(identificacion, person));
+      return;
+    }
 
     res.status(person ? 200 : 404).json({ identification: identificacion, sources, person });
   })

@@ -129,8 +129,9 @@ POST   /api/admin/consulta-masiva          { cedulas: string[], fuentes?: string
 GET    /api/admin/consulta-masiva          lista los últimos 50 lotes
 GET    /api/admin/consulta-masiva/:jobId   progreso + resultado por ítem
 
-GET    /api/consulta/:identificacion               vista consolidada, las 5 fuentes en paralelo
-                                                     acepta sesión (Bearer <token>) o API key
+GET    /api/consulta/:identificacion               con sesión (Bearer <token>): vista consolidada, las 5 fuentes
+                                                     con API key: solo DataDiverService + base interna,
+                                                                  respuesta reducida (ver abajo)
 GET    /api/consulta/:fuente/:identificacion        una sola fuente (solo sesión)
                                                      fuente ∈ datadiverservice | satje | sri | ant | rp
 ```
@@ -139,12 +140,27 @@ Una consulta a una fuente bloqueada por CAPTCHA responde `423 Locked` con `block
 
 ### API keys (integración de otro sistema)
 
-Para que un sistema externo consulte el expediente consolidado sin usar el login de usuario. La clave **solo** habilita `GET /api/consulta/:identificacion` — ningún otro endpoint. Se crean y revocan desde la pantalla **API keys** del panel admin (o vía `/api/admin/api-keys`). Se guarda solo el hash; el valor en claro (`dc_live_...`) se muestra una única vez al crearla.
+Para que un sistema externo consulte los datos de contacto de una persona sin usar el login de usuario. La clave **solo** habilita `GET /api/consulta/:identificacion` — ningún otro endpoint. Se crean y revocan desde la pantalla **API keys** del panel admin (o vía `/api/admin/api-keys`). Se guarda solo el hash; el valor en claro (`dc_live_...`) se muestra una única vez al crearla.
+
+Por API key la consulta **solo** toca DataDiverService (y la base interna ya poblada por él) — nunca SATJE / SRI / ANT / RP — y la respuesta es un objeto reducido:
+
+```jsonc
+// 200 OK
+{
+  "name": "JUAN PEREZ",
+  "identification": "1103381982",
+  "identification_type": "cedula",   // "cedula" | "ruc" | null
+  "email": "juan@mail.com",           // valor vigente más reciente, o null
+  "address": "AV. UNIVERSITARIA 123, LOJA, LOJA",  // calle, ciudad, provincia — o null
+  "phone_number": "0991234567"        // valor vigente más reciente, o null
+}
+// 404 si no hay información para esa identificación
+```
 
 ```bash
 # la clave va en el header X-API-Key (o Authorization: Bearer dc_live_...)
 # detrás del proxy la ruta lleva el prefijo: /infodata/api/consulta/...
-curl https://apps-cecom.cloud/infodata/api/consulta/0912345678 \
+curl https://apps-cecom.cloud/infodata/api/consulta/1103381982 \
   -H "X-API-Key: dc_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
