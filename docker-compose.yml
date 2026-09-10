@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: expediente
+      POSTGRES_PASSWORD: expediente
+      POSTGRES_DB: expediente_unico
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      # sin -d, pg_isready asume una base con el mismo nombre que el usuario
+      # ("expediente", que no existe) y lo loguea como FATAL en cada chequeo —
+      # inofensivo pero inunda los logs. Hay que apuntarlo a la base real.
+      test: ["CMD-SHELL", "pg_isready -U expediente -d expediente_unico"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    # Sin ports: api/worker lo alcanzan por la red interna de Docker
+    # (redis://redis:6379) — no necesita exponerse al host, y así no choca
+    # con el Redis que ya corre en el 6379 del servidor de producción.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://expediente:expediente@postgres:5432/expediente_unico
+      REDIS_URL: redis://redis:6379
+    ports:
+      # Host 3031 -> contenedor 3000. Un solo puerto para todo: Express sirve
+      # el build de React como estáticos desde el mismo proceso, no hay
+      # servidor de frontend aparte que necesite su propio puerto.
+      - "3031:3000"
+    # El seed es idempotente (no hace nada si ya hay usuarios) — seguro correrlo en cada arranque.
+    # La primera vez, el admin generado queda en `docker compose logs api` (ver README).
+    command: sh -c "npx prisma migrate deploy && node prisma/seed.js && node dist/server.js"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://expediente:expediente@postgres:5432/expediente_unico
+      REDIS_URL: redis://redis:6379
+    command: node dist/workers/index.js
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

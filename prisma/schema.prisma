@@ -1,0 +1,425 @@
+// Esquema de Expediente Único.
+// Ver el plan de arquitectura (sección 05/06) para el razonamiento de cada modelo:
+// todo hecho scrapeado (dirección, teléfono, causa, multa...) es una fila propia
+// atribuida a su fuente — nunca se sobrescribe entre fuentes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum Source {
+  DATADIVERSERVICE
+  SATJE
+  SRI
+  ANT
+  RP
+}
+
+enum BulkJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+}
+
+enum BulkItemStatus {
+  PENDING
+  RUNNING
+  OK
+  FAILED
+  BLOCKED_CAPTCHA
+}
+
+// ─────────────────────────────────────────────────────────────
+// Identidad
+// ─────────────────────────────────────────────────────────────
+
+model Person {
+  id             String    @id @default(cuid())
+  identification String    @unique // cédula o RUC
+  fullName       String?
+  birthDate      DateTime?
+  deathDate      DateTime? // fecha de defunción, si aplica
+  gender         String?
+  civilStatus    String?
+  nationality    String?
+  profession     String?
+  placeOfBirth   String?
+  age            Int?
+  salary         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  addresses       Address[]
+  phones          Phone[]
+  emails          Email[]
+  familyLinks     FamilyLink[]
+  judicialCases   JudicialCase[]
+  taxRecords      TaxRecord[]
+  trafficFines    TrafficFine[]
+  propertyRecords PropertyRecord[]
+  vehicles        Vehicle[]
+  laborRecords    LaborRecord[]
+
+  @@index([fullName])
+}
+
+model Vehicle {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  plate       String?
+  brand       String?
+  model       String?
+  year        String?
+  color       String?
+  vehicleType String?
+
+  source      Source
+  rawPayload  Json?
+  isCurrent   Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([personId, source])
+}
+
+model LaborRecord {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  employerName String?
+  position     String?
+  status       String?
+  startDate    String?
+  endDate      String?
+
+  source      Source
+  rawPayload  Json?
+  isCurrent   Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([personId, source])
+}
+
+model Address {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  address  String
+  province String?
+  city     String?
+  isValid  String? // validez reportada por la fuente (ej. "SI" / "NO"), texto libre
+
+  source      Source
+  rawPayload  Json?
+  isCurrent   Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([personId, source])
+}
+
+model Phone {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  phoneNumber String
+  phoneType   String?
+
+  source      Source
+  rawPayload  Json?
+  isCurrent   Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([personId, source])
+}
+
+model Email {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  address  String
+  isActive Boolean @default(true)
+
+  source      Source
+  rawPayload  Json?
+  isCurrent   Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([personId, source])
+}
+
+model FamilyLink {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  relatedPersonId       String?
+  relatedName           String?
+  relatedIdentification String?
+  relationshipType      String?
+  relatedBirthDate      DateTime?
+  relatedDeathDate      DateTime?
+  relatedGender         String?
+  relatedCivilStatus    String?
+  relatedAge            Int?
+
+  source      Source
+  rawPayload  Json?
+  isCurrent   Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([personId, source])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Por fuente
+// ─────────────────────────────────────────────────────────────
+
+model JudicialCase {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  caseId     String? // idJuicio en SATJE
+  caseNumber String?
+  province   String?
+  court      String?
+  role       String? // actor | demandado
+  litigants  Json?
+  incidents  Json?
+
+  source      Source   @default(SATJE)
+  rawPayload  Json?
+  isCurrent   Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([personId])
+  @@index([caseId])
+}
+
+model TaxRecord {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  ruc                        String
+  status                     String?
+  taxpayerType               String?
+  regime                     String?
+  businessName               String?
+  mainEconomicActivity       String?
+  category                   String?
+  requiredToKeepAccounting   String?
+  isWithholdingAgent         String?
+  isSpecialTaxpayer          String?
+  isPhantomTaxpayer          String?
+  hasNonexistentTransactions String?
+  activitiesStartDate        String?
+  cessationDate              String?
+  restartDate                String?
+  lastUpdateDate             String?
+  legalRepresentatives       Json?
+  cancellationReason         String?
+
+  source      Source   @default(SRI)
+  rawPayload  Json?
+  isCurrent   Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  establishments TaxEstablishment[]
+
+  @@index([personId])
+  @@index([ruc])
+}
+
+model TaxEstablishment {
+  id          String    @id @default(cuid())
+  taxRecordId String
+  taxRecord   TaxRecord @relation(fields: [taxRecordId], references: [id], onDelete: Cascade)
+
+  establishmentNumber String?
+  name                String?
+  location            String?
+  status              String?
+  establishmentType   String?
+  isHeadquarters      Boolean @default(false)
+
+  @@index([taxRecordId])
+}
+
+model TrafficFine {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  plate              String?
+  status             String? // pendiente | pagada
+  offenseDescription String?
+  amountDue          Float?
+  amountPaid         Float?
+  issueDate          String?
+  notificationDate   String?
+  sanctionAmount     Float?
+  fineAmount         Float?
+  remissionAmount    Float?
+
+  source      Source   @default(ANT)
+  rawPayload  Json?
+  isCurrent   Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([personId])
+  @@index([plate])
+}
+
+model PropertyRecord {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  recordType String?
+  number1    String?
+  number2    String?
+  recordDate String?
+  role       String?
+  detail     String?
+
+  source      Source   @default(RP)
+  rawPayload  Json?
+  isCurrent   Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([personId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Cuentas y auditoría (no scrapeado)
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  role         Role    @default(USER)
+  isActive     Boolean @default(true)
+  createdById  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bulkJobs      BulkJob[]
+  sessions      Session[]
+  searchHistory SearchHistory[]
+  apiKeys       ApiKey[]
+}
+
+/// Clave de API para integraciones máquina-a-máquina: otro sistema consulta
+/// el expediente consolidado sin pasar por el login de usuario. Solo habilita
+/// GET /api/consulta/:identificacion — nada más. Se guarda solo el hash
+/// (igual que las sesiones); el valor en claro se muestra una única vez al
+/// crearla. Revocable en cualquier momento sin tocar la clave.
+///
+/// `allowedDomains`: si tiene dominios, la request tiene que venir con un
+/// Origin/Referer que matchee alguno (ese dominio o un subdominio suyo) — así
+/// una clave filtrada no sirve desde otro sitio. Vacío = sin restricción de
+/// origen (pensado para llamadas servidor-a-servidor).
+model ApiKey {
+  id             String    @id @default(cuid())
+  name           String
+  keyHash        String    @unique
+  keyPrefix      String
+  allowedDomains String[]  @default([])
+  createdById    String?
+  createdBy      User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([createdById])
+}
+
+/// Un token emitido en login es una fila acá — es la única fuente de verdad
+/// de requireAuth (no hay JWT que autoverificar). Así el login es revocable
+/// de verdad (logout, o un admin que fuerza cierre de sesión al desactivar
+/// a alguien).
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Una fila por usuario × cédula consultada — se actualiza el timestamp en
+/// vez de duplicar entradas cuando repetís la misma búsqueda, así el
+/// historial del dashboard muestra "últimas consultadas" sin repetidos.
+model SearchHistory {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  identification String
+  personFound    Boolean  @default(false)
+  lastSearchedAt DateTime @default(now())
+
+  @@unique([userId, identification])
+  @@index([userId, lastSearchedAt])
+}
+
+model BulkJob {
+  id            String        @id @default(cuid())
+  requestedById String
+  requestedBy   User          @relation(fields: [requestedById], references: [id])
+  totalItems    Int
+  status        BulkJobStatus @default(PENDING)
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  items BulkJobItem[]
+}
+
+model BulkJobItem {
+  id             String         @id @default(cuid())
+  bulkJobId      String
+  bulkJob        BulkJob        @relation(fields: [bulkJobId], references: [id], onDelete: Cascade)
+  identification String
+  source         Source
+  status         BulkItemStatus @default(PENDING)
+  errorMessage   String?
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([bulkJobId])
+  @@index([identification])
+}
