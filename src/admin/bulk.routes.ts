@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireAuth, requireRole } from "../auth/auth.middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { SOURCE_SLUGS, ALL_SOURCES } from "../scrapers/registry";
-import { createBulkJob, getBulkJobStatus, listBulkJobs } from "./bulk.service";
+import { cancelBulkJob, createBulkJob, getBulkJobStatus, listBulkJobs } from "./bulk.service";
 
 export const bulkRouter = Router();
 
@@ -58,5 +58,17 @@ bulkRouter.get(
       return;
     }
     res.json(status);
+  })
+);
+
+bulkRouter.post(
+  "/:jobId/cancelar",
+  asyncHandler(async (req, res) => {
+    const cancelled = await cancelBulkJob(req.params.jobId);
+    if (!cancelled) {
+      res.status(404).json({ error: "Lote no encontrado" });
+      return;
+    }
+    res.json(await getBulkJobStatus(req.params.jobId));
   })
 );

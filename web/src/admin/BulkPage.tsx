@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Layers, Send } from "lucide-react";
 import { AppHeader } from "../dashboard/components/AppHeader";
 import { ApiError } from "../api/client";
-import { BulkItemStatus, BulkJobDetail, BulkJobSummary, createBulkJob, getBulkJob, listBulkJobs } from "../api/bulk";
+import { BulkItemStatus, BulkJobDetail, BulkJobSummary, cancelBulkJob, createBulkJob, getBulkJob, listBulkJobs } from "../api/bulk";
 
 const SOURCE_OPTIONS: { slug: string; label: string }[] = [
   { slug: "datadiverservice", label: "DataDiverService" },
@@ -16,6 +16,7 @@ const JOB_STATUS_LABEL: Record<BulkJobSummary["status"], string> = {
   RUNNING: "En curso",
   COMPLETED: "Completado",
   COMPLETED_WITH_ERRORS: "Completado con errores",
+  CANCELLED: "Cancelado",
 };
 
 const JOB_STATUS_CLASS: Record<BulkJobSummary["status"], string> = {
@@ -23,6 +24,7 @@ const JOB_STATUS_CLASS: Record<BulkJobSummary["status"], string> = {
   RUNNING: "status-blocked",
   COMPLETED: "status-found",
   COMPLETED_WITH_ERRORS: "status-error",
+  CANCELLED: "status-unchecked",
 };
 
 const ITEM_STATUS_LABEL: Record<BulkItemStatus, string> = {
@@ -31,6 +33,7 @@ const ITEM_STATUS_LABEL: Record<BulkItemStatus, string> = {
   OK: "Ok",
   FAILED: "Falló",
   BLOCKED_CAPTCHA: "Bloqueado",
+  CANCELLED: "Cancelado",
 };
 
 /**
@@ -52,6 +55,7 @@ const ITEM_STATUS_CLASS: Record<BulkItemStatus, string> = {
   OK: "status-found",
   FAILED: "status-error",
   BLOCKED_CAPTCHA: "status-blocked",
+  CANCELLED: "status-unchecked",
 };
 
 export function BulkPage() {
@@ -211,7 +215,25 @@ function BulkJobDetailPanel({ jobId, onSettled }: { jobId: string; onSettled: ()
   const [detail, setDetail] = useState<BulkJobDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAllItems, setShowAllItems] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const settledNotified = useRef(false);
+
+  async function handleCancel() {
+    if (!window.confirm("¿Cancelar este lote? Los items todavía no procesados quedan marcados como cancelados.")) return;
+    setCancelling(true);
+    try {
+      const updated = await cancelBulkJob(jobId);
+      setDetail(updated);
+      if (!settledNotified.current) {
+        settledNotified.current = true;
+        onSettled();
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo cancelar el lote.");
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   useEffect(() => {
     setDetail(null);
@@ -271,7 +293,12 @@ function BulkJobDetailPanel({ jobId, onSettled }: { jobId: string; onSettled: ()
       <div className="bulk-detail-head">
         <span className={`pill ${JOB_STATUS_CLASS[detail.status]}`}>{JOB_STATUS_LABEL[detail.status]}</span>
         {(detail.status === "RUNNING" || detail.status === "PENDING") && (
-          <span className="fact-time">Actualizando automáticamente…</span>
+          <>
+            <span className="fact-time">Actualizando automáticamente…</span>
+            <button type="button" className="btn btn-ghost btn-tiny" onClick={handleCancel} disabled={cancelling}>
+              {cancelling ? "Cancelando…" : "Cancelar lote"}
+            </button>
+          </>
         )}
       </div>
 
@@ -303,6 +330,12 @@ function BulkJobDetailPanel({ jobId, onSettled }: { jobId: string; onSettled: ()
             {detail.counts.bloqueadosCaptcha}
           </span>
           <span className="bulk-count-label">Bloqueados</span>
+        </div>
+        <div className="bulk-count-stat">
+          <span className="bulk-count-value" style={{ color: "var(--ink-soft)" }}>
+            {detail.counts.cancelados}
+          </span>
+          <span className="bulk-count-label">Cancelados</span>
         </div>
       </div>
 

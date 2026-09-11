@@ -1,7 +1,7 @@
 import { api } from "./client";
 
-export type BulkJobStatus = "PENDING" | "RUNNING" | "COMPLETED" | "COMPLETED_WITH_ERRORS";
-export type BulkItemStatus = "PENDING" | "RUNNING" | "OK" | "FAILED" | "BLOCKED_CAPTCHA";
+export type BulkJobStatus = "PENDING" | "RUNNING" | "COMPLETED" | "COMPLETED_WITH_ERRORS" | "CANCELLED";
+export type BulkItemStatus = "PENDING" | "RUNNING" | "OK" | "FAILED" | "BLOCKED_CAPTCHA" | "CANCELLED";
 
 export interface BulkJobSummary {
   id: string;
@@ -24,7 +24,7 @@ export interface BulkJobDetail {
   id: string;
   totalItems: number;
   status: BulkJobStatus;
-  counts: { pendientes: number; completados: number; fallidos: number; bloqueadosCaptcha: number };
+  counts: { pendientes: number; completados: number; fallidos: number; bloqueadosCaptcha: number; cancelados: number };
   createdAt: string;
   items: BulkJobItem[];
 }
@@ -39,4 +39,8 @@ export function getBulkJob(jobId: string) {
 
 export function createBulkJob(data: { cedulas: string[]; fuentes?: string[] }) {
   return api.post<{ jobId: string; totalItems: number }>("/admin/consulta-masiva", data);
+}
+
+export function cancelBulkJob(jobId: string) {
+  return api.post<BulkJobDetail>(`/admin/consulta-masiva/${jobId}/cancelar`);
 }

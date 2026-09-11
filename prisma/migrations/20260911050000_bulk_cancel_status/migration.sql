@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "BulkJobStatus" ADD VALUE 'CANCELLED';
+ALTER TYPE "BulkItemStatus" ADD VALUE 'CANCELLED';
