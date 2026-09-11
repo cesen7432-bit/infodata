@@ -13,6 +13,29 @@ import { findOwnerDniByPlate } from "../scrapers/datadiverservice/adapter";
 
 export const consultaRouter = Router();
 
+// Límite por fuente en la vista consolidada: si una fuente está caída o lenta
+// (p. ej. RP sin responder), no debe retener la respuesta esperando sus 90s
+// completos de `waitUntilFinished` — las demás fuentes ya habrán terminado.
+// El job igual sigue corriendo en la cola y cachea su resultado para la
+// próxima consulta; acá simplemente dejamos de esperarlo.
+const CONSOLIDATED_SOURCE_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`tiempo de espera agotado (${ms}ms)`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 // Ruta literal — debe ir antes de "/:identificacion" y "/:fuente/:identificacion",
 // si no Express la confunde con una identificación o una fuente.
 consultaRouter.get(
@@ -81,7 +104,10 @@ consultaRouter.get(
     }
 
     const perSource = await Promise.allSettled(
-      applicableSources.map(async (source) => ({ source, result: await resolveConsulta(source, identificacion) }))
+      applicableSources.map(async (source) => ({
+        source,
+        result: await withTimeout(resolveConsulta(source, identificacion), CONSOLIDATED_SOURCE_TIMEOUT_MS),
+      }))
     );
 
     const sources: Record<string, unknown> = {};
@@ -96,9 +122,13 @@ consultaRouter.get(
         // No lo escondemos: una fuente que falló es un estado distinto de
         // "no se consultó porque el formato no aplica" — el bug que motivó
         // esto (jobId con ":" reventando en BullMQ) quedaba invisible acá.
+        // Si lo que pasó fue que se agotó CONSOLIDATED_SOURCE_TIMEOUT_MS, el
+        // job sigue vivo en la cola: no lo esperamos más, pero terminará y
+        // quedará cacheado para la próxima consulta.
         const source = applicableSources[i];
+        const timedOut = r.reason?.message?.includes("tiempo de espera agotado");
         logger.error("fuente falló en la consulta consolidada", { source, identificacion, error: r.reason?.message });
-        sources[source.toLowerCase()] = { found: false, resolvedFrom: "error", blockedCaptcha: false };
+        sources[source.toLowerCase()] = { found: false, resolvedFrom: timedOut ? "pending" : "error", blockedCaptcha: false };
       }
     });
 

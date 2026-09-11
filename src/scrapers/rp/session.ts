@@ -48,19 +48,29 @@ export async function getAuthenticatedPage(): Promise<Page> {
   loginPromise = (async () => {
     if (sessionPage && !sessionPage.isClosed()) {
       if (await checkSession(sessionPage)) return sessionPage;
+      // Sesión caída (p. ej. RP no respondió) — cerramos la página vieja en vez
+      // de dejarla huérfana, y no la volvemos a probar en el próximo intento.
+      await sessionPage.close().catch(() => {});
+      sessionPage = null;
     }
 
     const browser = await rpBrowser.getBrowser();
-    sessionPage = await browser.newPage();
-    await sessionPage.setExtraHTTPHeaders({ "Accept-Language": "es-ES,es;q=0.9,en;q=0.8" });
+    const page = await browser.newPage();
+    await page.setExtraHTTPHeaders({ "Accept-Language": "es-ES,es;q=0.9,en;q=0.8" });
 
-    const valid = await checkSession(sessionPage);
-    if (!valid) {
-      await performLogin(sessionPage);
-      const revalidated = await checkSession(sessionPage);
-      if (!revalidated) throw new Error("No se pudo establecer una sesión válida en RP (credenciales o CAPTCHA)");
+    try {
+      const valid = await checkSession(page);
+      if (!valid) {
+        await performLogin(page);
+        const revalidated = await checkSession(page);
+        if (!revalidated) throw new Error("No se pudo establecer una sesión válida en RP (credenciales o CAPTCHA)");
+      }
+    } catch (err) {
+      await page.close().catch(() => {});
+      throw err;
     }
 
+    sessionPage = page;
     return sessionPage;
   })().finally(() => {
     loginPromise = null;
