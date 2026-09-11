@@ -10,6 +10,17 @@ function delay(ms: number): Promise<void> {
 let sessionPage: Page | null = null;
 let loginPromise: Promise<Page> | null = null;
 
+// Circuit breaker: cuando RP está caído (ej. net::ERR_CONNECTION_TIMED_OUT),
+// cada intento fallido igual tarda su timeout completo (15-30s) x 3 reintentos
+// de BullMQ. En un lote masivo eso significa horas golpeando un sitio que no
+// responde. Tras varios fallos seguidos, dejamos de intentar por un rato y
+// fallamos al instante — el resto del lote avanza y RP se revisa solo cuando
+// vuelva a tocarle un intento tras el enfriamiento.
+const CIRCUIT_FAILURE_THRESHOLD = 3;
+const CIRCUIT_COOLDOWN_MS = 2 * 60 * 1000;
+let consecutiveFailures = 0;
+let circuitOpenUntil = 0;
+
 async function checkSession(page: Page): Promise<boolean> {
   try {
     await page.goto(env.RP_CONSULTA_URL, { waitUntil: "networkidle2", timeout: 15000 });
@@ -45,6 +56,11 @@ async function performLogin(page: Page): Promise<void> {
 export async function getAuthenticatedPage(): Promise<Page> {
   if (loginPromise) return loginPromise;
 
+  if (Date.now() < circuitOpenUntil) {
+    const secondsLeft = Math.ceil((circuitOpenUntil - Date.now()) / 1000);
+    throw new Error(`RP no disponible (${consecutiveFailures} fallos seguidos), en enfriamiento ${secondsLeft}s más`);
+  }
+
   loginPromise = (async () => {
     if (sessionPage && !sessionPage.isClosed()) {
       if (await checkSession(sessionPage)) return sessionPage;
@@ -67,9 +83,18 @@ export async function getAuthenticatedPage(): Promise<Page> {
       }
     } catch (err) {
       await page.close().catch(() => {});
+      consecutiveFailures++;
+      if (consecutiveFailures >= CIRCUIT_FAILURE_THRESHOLD) {
+        circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+        logger.error("[rp] circuito abierto: demasiados fallos seguidos, se pausan intentos", {
+          consecutiveFailures,
+          cooldownMs: CIRCUIT_COOLDOWN_MS,
+        });
+      }
       throw err;
     }
 
+    consecutiveFailures = 0;
     sessionPage = page;
     return sessionPage;
   })().finally(() => {

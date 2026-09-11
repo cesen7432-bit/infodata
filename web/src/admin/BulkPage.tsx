@@ -34,6 +34,19 @@ const ITEM_STATUS_LABEL: Record<BulkItemStatus, string> = {
   BLOCKED_CAPTCHA: "Bloqueado",
 };
 
+/**
+ * Al pegar una columna de Excel, cada cédula ya viene en su propia línea —
+ * separar también por coma rompe valores que traen coma de por sí (p. ej. un
+ * número que Excel mostró en notación científica en formato es-EC, como
+ * "1,10283E+12": la coma ahí es el separador decimal, no un delimitador
+ * entre cédulas). Por eso la coma solo se usa como separador cuando el
+ * pegado es una sola línea (entrada manual tipo "0912345678, 0923456789").
+ */
+function parseIdentifications(raw: string): string[] {
+  const parts = raw.includes("\n") ? raw.split(/[\n\t]/) : raw.split(/[\n,\t]/);
+  return parts.map((c) => c.trim()).filter(Boolean);
+}
+
 const ITEM_STATUS_CLASS: Record<BulkItemStatus, string> = {
   PENDING: "status-unchecked",
   RUNNING: "status-blocked",
@@ -128,10 +141,7 @@ function NewBulkJobForm({ onCreated }: { onCreated: (jobId: string) => void }) {
     e.preventDefault();
     setError(null);
 
-    const list = cedulas
-      .split(/[\n,]/)
-      .map((c) => c.trim())
-      .filter(Boolean);
+    const list = parseIdentifications(cedulas);
 
     if (list.length === 0) {
       setError("Ingresá al menos una cédula.");
@@ -155,10 +165,7 @@ function NewBulkJobForm({ onCreated }: { onCreated: (jobId: string) => void }) {
     }
   }
 
-  const count = cedulas
-    .split(/[\n,]/)
-    .map((c) => c.trim())
-    .filter(Boolean).length;
+  const count = parseIdentifications(cedulas).length;
 
   return (
     <form className="bulk-form" onSubmit={handleSubmit}>
