@@ -131,7 +131,7 @@ const FIELD_SECTIONS: FieldSection[] = [
   },
   {
     icon: Home,
-    tint: "var(--src-rp)",
+    tint: "var(--src-datadiverservice)",
     title: "Propiedades",
     fields: ["Tipo de registro", "Números de trámite", "Fecha", "Rol (propietario, etc.)", "Detalle del bien"],
   },

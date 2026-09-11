@@ -22,7 +22,6 @@ enum Source {
   SATJE
   SRI
   ANT
-  RP
 }
 
 enum BulkJobStatus {
@@ -309,7 +308,7 @@ model PropertyRecord {
   role       String?
   detail     String?
 
-  source      Source   @default(RP)
+  source      Source   @default(DATADIVERSERVICE)
   rawPayload  Json?
   isCurrent   Boolean  @default(true)
   firstSeenAt DateTime @default(now())

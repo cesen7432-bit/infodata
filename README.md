@@ -1,8 +1,8 @@
 # Expediente Único
 
-Plataforma unificada de consulta y scraping — SATJE, SRI, ANT, Registro de la Propiedad y DataDiverService en un solo proyecto. Ver el plan de arquitectura completo para el razonamiento de cada decisión.
+Plataforma unificada de consulta y scraping — SATJE, SRI, ANT y DataDiverService en un solo proyecto. Ver el plan de arquitectura completo para el razonamiento de cada decisión.
 
-**Estado:** Fases 0-5 implementadas (fundaciones, las 5 fuentes, consulta masiva, vista consolidada) + interfaz web (login, dashboard de búsqueda, historial, expediente seccionado). Fase 6 (endurecimiento) parcial — ver abajo.
+**Estado:** Fases 0-5 implementadas (fundaciones, las 4 fuentes, consulta masiva, vista consolidada) + interfaz web (login, dashboard de búsqueda, historial, expediente seccionado). Fase 6 (endurecimiento) parcial — ver abajo.
 
 ## Arquitectura
 
@@ -23,7 +23,6 @@ src/
     satje/              100% HTTP — no necesita Puppeteer (ver nota abajo)
     sri/                sesión (cookies) bootstrapeada una vez, después HTTP directo
     ant/                Puppeteer con navegador persistente (sin API pública)
-    rp/                 Puppeteer con sesión autenticada persistente
   workers/      un Worker BullMQ genérico por fuente (genericWorker.ts)
 
 web/            SPA (React + Vite + TypeScript) — login, dashboard de búsqueda,
@@ -40,7 +39,6 @@ web/            SPA (React + Vite + TypeScript) — login, dashboard de búsqued
 | SATJE | 100% HTTP, sin Puppeteer | La API de búsqueda acepta el literal `recaptcha:"verdad"` — no hace falta resolver nada. El export a PDF del proyecto original (que sí usa Puppeteer+CAPTCHA) no se portó: es una función de exportación, no de captura de datos |
 | SRI | Sesión (cookies) bootstrapeada con Puppeteer, luego HTTP directo | Si el SRI devuelve CAPTCHA, se reintenta una vez con sesión nueva; si persiste, el job queda `blockedCaptcha` en vez de reintentar indefinidamente (presupuesto $0, plan sección 09) |
 | ANT | Puppeteer, navegador persistente compartido | No tiene API pública — cada consulta abre una página nueva, no un proceso nuevo |
-| Registro de la Propiedad | Puppeteer, sesión autenticada persistente | Requiere `RP_USERNAME/PASSWORD` de una cuenta habilitada |
 
 ## Autenticación: seeder + sesiones en BD
 
@@ -58,11 +56,11 @@ El login (`POST /api/auth/login`) no emite un JWT — genera un token opaco (256
 ## Correr en local (sin Docker)
 
 ```bash
-cp .env.example .env        # completa credenciales de DataDiverService y RP
+cp .env.example .env        # completa credenciales de DataDiverService
 npm install
 npm run prisma:migrate      # crea las tablas y siembra el primer admin
 npm run dev:api             # proceso API, con recarga
-npm run dev:worker          # proceso worker (las 5 colas), en otra terminal
+npm run dev:worker          # proceso worker (las 4 colas), en otra terminal
 
 cd web && npm install && npm run dev   # SPA en :5173 (o el siguiente puerto libre),
                                         # con proxy a la API — abrí esa URL en el navegador
@@ -129,11 +127,11 @@ POST   /api/admin/consulta-masiva          { cedulas: string[], fuentes?: string
 GET    /api/admin/consulta-masiva          lista los últimos 50 lotes
 GET    /api/admin/consulta-masiva/:jobId   progreso + resultado por ítem
 
-GET    /api/consulta/:identificacion               con sesión (Bearer <token>): vista consolidada, las 5 fuentes
+GET    /api/consulta/:identificacion               con sesión (Bearer <token>): vista consolidada, las 4 fuentes
                                                      con API key: solo DataDiverService + base interna,
                                                                   respuesta reducida (ver abajo)
 GET    /api/consulta/:fuente/:identificacion        una sola fuente (solo sesión)
-                                                     fuente ∈ datadiverservice | satje | sri | ant | rp
+                                                     fuente ∈ datadiverservice | satje | sri | ant
 ```
 
 Una consulta a una fuente bloqueada por CAPTCHA responde `423 Locked` con `blockedCaptcha: true` — significa que el bypass gratuito no pudo resolverlo y el dato requiere reintentar más tarde o revisión manual.
@@ -142,7 +140,7 @@ Una consulta a una fuente bloqueada por CAPTCHA responde `423 Locked` con `block
 
 Para que un sistema externo consulte los datos de contacto de una persona sin usar el login de usuario. La clave **solo** habilita `GET /api/consulta/:identificacion` — ningún otro endpoint. Se crean y revocan desde la pantalla **API keys** del panel admin (o vía `/api/admin/api-keys`). Se guarda solo el hash; el valor en claro (`dc_live_...`) se muestra una única vez al crearla.
 
-Por API key la consulta **solo** toca DataDiverService (y la base interna ya poblada por él) — nunca SATJE / SRI / ANT / RP — y la respuesta es un objeto reducido:
+Por API key la consulta **solo** toca DataDiverService (y la base interna ya poblada por él) — nunca SATJE / SRI / ANT — y la respuesta es un objeto reducido:
 
 ```jsonc
 // 200 OK

@@ -436,10 +436,6 @@ export async function getSourceFreshness(personId: string, source: Source): Prom
       const row = await prisma.trafficFine.findFirst({ where: { personId, source }, orderBy: { lastSeenAt: "desc" } });
       return row?.lastSeenAt ?? null;
     }
-    case Source.RP: {
-      const row = await prisma.propertyRecord.findFirst({ where: { personId, source }, orderBy: { lastSeenAt: "desc" } });
-      return row?.lastSeenAt ?? null;
-    }
   }
 }
 

@@ -10,7 +10,6 @@ export const RESULT_TTL_SECONDS: Record<Source, number> = {
   SATJE: 6 * 60 * 60,
   SRI: 24 * 60 * 60,
   ANT: 6 * 60 * 60,
-  RP: 7 * 24 * 60 * 60,
 };
 
 export const NOT_FOUND_TTL_SECONDS: Record<Source, number> = {
@@ -18,5 +17,4 @@ export const NOT_FOUND_TTL_SECONDS: Record<Source, number> = {
   SATJE: 2 * 60,
   SRI: 5 * 60,
   ANT: 5 * 60,
-  RP: 10 * 60,
 };

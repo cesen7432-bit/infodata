@@ -2,7 +2,7 @@ import { logger } from "../lib/logger";
 import { ALL_SOURCES } from "../scrapers/registry";
 import { createSourceWorker } from "./genericWorker";
 
-// Un Worker BullMQ por fuente (datadiverservice, satje, sri, ant, rp), cada
+// Un Worker BullMQ por fuente (datadiverservice, satje, sri, ant), cada
 // uno con su propia concurrencia configurada en las variables de entorno
 // QUEUE_CONCURRENCY_* (plan, sección 09).
 const workers = ALL_SOURCES.map((source) => createSourceWorker(source));

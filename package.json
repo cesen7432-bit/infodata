@@ -1,7 +1,7 @@
 {
   "name": "expediente-unico",
   "version": "0.1.0",
-  "description": "Plataforma unificada de consulta y scraping — SATJE, SRI, ANT, Registro de la Propiedad y DataDiverService",
+  "description": "Plataforma unificada de consulta y scraping — SATJE, SRI, ANT y DataDiverService",
   "private": true,
   "main": "dist/server.js",
   "scripts": {

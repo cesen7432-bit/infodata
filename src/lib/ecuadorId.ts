@@ -43,7 +43,7 @@ export function deriveNaturalPersonRuc(cedula: string): string | null {
 /**
  * La cara inversa de deriveNaturalPersonRuc: si buscás con la cédula, o con
  * el RUC de persona natural derivado de esa cédula, esto devuelve la cédula
- * en ambos casos — así SATJE/ANT/RP/DataDiverService (que solo hablan en
+ * en ambos casos — así SATJE/ANT/DataDiverService (que solo hablan en
  * cédula) igual se consultan sin importar cuál de las dos escribiste.
  */
 export function resolveCedulaFromIdentification(identification: string): string | null {

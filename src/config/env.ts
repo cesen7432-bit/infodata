@@ -31,12 +31,6 @@ const schema = z.object({
   ANT_URL: z.string().default("https://consultaweb.ant.gob.ec/PortalWEB/paginas/clientes/clp_grid_citaciones.jsp"),
   QUEUE_CONCURRENCY_ANT: z.coerce.number().default(2),
 
-  RP_LOGIN_URL: z.string().default("https://www.rplojavirtual.gob.ec/login.xhtml"),
-  RP_CONSULTA_URL: z.string().default("https://www.rplojavirtual.gob.ec/public/bienInmueble.xhtml"),
-  RP_USERNAME: z.string().default(""),
-  RP_PASSWORD: z.string().default(""),
-  QUEUE_CONCURRENCY_RP: z.coerce.number().default(1),
-
   HEADLESS: z
     .string()
     .default("true")

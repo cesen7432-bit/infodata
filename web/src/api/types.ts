@@ -1,5 +1,5 @@
 export type Role = "ADMIN" | "USER";
-export type Source = "DATADIVERSERVICE" | "SATJE" | "SRI" | "ANT" | "RP";
+export type Source = "DATADIVERSERVICE" | "SATJE" | "SRI" | "ANT";
 
 export interface CurrentUser {
   id: string;

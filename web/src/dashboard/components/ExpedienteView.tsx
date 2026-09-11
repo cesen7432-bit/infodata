@@ -41,7 +41,6 @@ export function ExpedienteView({ loading, error, data, onSearch }: ExpedienteVie
   const judicialStatus = statusFor(sources, "SATJE");
   const taxStatus = statusFor(sources, "SRI");
   const finesStatus = statusFor(sources, "ANT");
-  const propertyStatus = statusFor(sources, "RP");
 
   const navItems: SectionNavItem[] = useMemo(
     () => [
@@ -85,10 +84,9 @@ export function ExpedienteView({ loading, error, data, onSearch }: ExpedienteVie
         icon: Home,
         tint: "var(--accent-2)",
         count: person?.propertyRecords.length ?? 0,
-        alert: isAlertStatus(propertyStatus),
       },
     ],
-    [person, judicialStatus, taxStatus, finesStatus, propertyStatus],
+    [person, judicialStatus, taxStatus, finesStatus],
   );
 
   const [active, setActive] = useState(navItems[0].key);
@@ -183,7 +181,7 @@ export function ExpedienteView({ loading, error, data, onSearch }: ExpedienteVie
         {active === "judicial" && <JudicialSection cases={currentPerson.judicialCases} status={judicialStatus} />}
         {active === "tributario" && <TaxSection records={currentPerson.taxRecords} status={taxStatus} />}
         {active === "multas" && <TrafficFinesSection fines={currentPerson.trafficFines} status={finesStatus} />}
-        {active === "propiedades" && <PropertySection records={currentPerson.propertyRecords} status={propertyStatus} />}
+        {active === "propiedades" && <PropertySection records={currentPerson.propertyRecords} />}
       </div>
     </div>
   );

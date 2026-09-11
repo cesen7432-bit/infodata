@@ -1,23 +1,15 @@
 import { Home } from "lucide-react";
 import { PropertyRecord } from "../../api/types";
 import { SectionCard } from "./SectionCard";
-import { StatusPill, Status } from "./SourcePill";
 
-function emptyLabelFor(status: Status): string {
-  if (status === "blocked") return "La consulta fue bloqueada — reintentar más tarde.";
-  if (status === "error") return "No se pudo completar la consulta — reintenta la búsqueda.";
-  return "No hay bienes registrados.";
-}
-
-export function PropertySection({ records, status }: { records: PropertyRecord[]; status: Status }) {
+export function PropertySection({ records }: { records: PropertyRecord[] }) {
   return (
     <SectionCard
       title="Propiedades"
       icon={Home}
       tint="var(--accent-2)"
-      statusPill={<StatusPill status={status} />}
       isEmpty={records.length === 0}
-      emptyLabel={emptyLabelFor(status)}
+      emptyLabel="No hay bienes registrados."
     >
       <ul className="fact-list">
         {records.map((r) => (

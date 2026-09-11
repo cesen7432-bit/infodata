@@ -5,7 +5,6 @@ export const SOURCE_SLUGS: Record<Source, string> = {
   SATJE: "satje",
   SRI: "sri",
   ANT: "ant",
-  RP: "rp",
 };
 
 export function formatDate(iso: string | null | undefined): string {

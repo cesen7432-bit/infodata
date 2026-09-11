@@ -7,7 +7,7 @@ type ConsolidatedPerson = NonNullable<Awaited<ReturnType<typeof getConsolidatedP
  * Respuesta reducida del endpoint consolidado cuando se consulta con API key:
  * solo el núcleo de identidad y contacto. La fuente de estos datos es siempre
  * DataDiverService (o la base interna ya poblada por él) — el endpoint por API
- * key no dispara SATJE / SRI / ANT / RP.
+ * key no dispara SATJE / SRI / ANT.
  */
 export interface ContactView {
   name: string | null;

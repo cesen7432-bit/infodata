@@ -13,9 +13,9 @@ import { findOwnerDniByPlate } from "../scrapers/datadiverservice/adapter";
 
 export const consultaRouter = Router();
 
-// Límite por fuente en la vista consolidada: si una fuente está caída o lenta
-// (p. ej. RP sin responder), no debe retener la respuesta esperando sus 90s
-// completos de `waitUntilFinished` — las demás fuentes ya habrán terminado.
+// Límite por fuente en la vista consolidada: si una fuente está caída o lenta,
+// no debe retener la respuesta esperando sus 90s completos de `waitUntilFinished`
+// — las demás fuentes ya habrán terminado.
 // El job igual sigue corriendo en la cola y cachea su resultado para la
 // próxima consulta; acá simplemente dejamos de esperarlo.
 const CONSOLIDATED_SOURCE_TIMEOUT_MS = 20_000;
@@ -47,7 +47,7 @@ consultaRouter.get(
 );
 
 /**
- * Vista consolidada: dispara la cascada caché → BD → cola en las 5 fuentes en
+ * Vista consolidada: dispara la cascada caché → BD → cola en las 4 fuentes en
  * paralelo y devuelve la persona con todos los hechos vigentes, cada uno ya
  * atribuido a su fuente (plan, sección 05). Cada búsqueda queda registrada
  * en el historial del usuario que la hizo.

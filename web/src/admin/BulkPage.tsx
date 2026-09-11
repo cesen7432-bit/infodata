@@ -9,7 +9,6 @@ const SOURCE_OPTIONS: { slug: string; label: string }[] = [
   { slug: "satje", label: "SATJE" },
   { slug: "sri", label: "SRI" },
   { slug: "ant", label: "ANT" },
-  { slug: "rp", label: "Registro de la Propiedad" },
 ];
 
 const JOB_STATUS_LABEL: Record<BulkJobSummary["status"], string> = {
