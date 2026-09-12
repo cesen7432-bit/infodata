@@ -40,12 +40,6 @@ export function ApiKeysPage() {
           </button>
         </div>
 
-        <p className="apikeys-intro">
-          Una API key permite que otro sistema consulte el expediente consolidado
-          (<code>GET /api/consulta/:cédula_o_ruc</code>) sin iniciar sesión. No habilita ningún otro endpoint. Si le asignás
-          dominios, solo se aceptan requests cuyo origen sea alguno de esos dominios o un subdominio.
-        </p>
-
         {error && (
           <p className="form-error" role="alert">
             {error}

@@ -157,6 +157,7 @@ ul {
 .auth-card {
   width: 100%;
   max-width: 380px;
+  margin: 0 auto;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);

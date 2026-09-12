@@ -2,6 +2,50 @@ import ExcelJS from "exceljs";
 import { prisma } from "../db/prisma";
 
 /**
+ * Los datos vienen de scrapers de portales de gobierno (SATJE, SRI, ANT) — de
+ * vez en cuando traen caracteres de control fuera del rango válido de XML (la
+ * especificación no admite ciertos códigos de control ni los "noncharacters"
+ * U+FFFE/U+FFFF). ExcelJS no los sanea: si llegan a una celda, el .xlsx queda
+ * técnicamente inválido y Excel lo abre con el diálogo de "se encontró un
+ * problema con el contenido" — el bug reportado. Se recorre por code point
+ * (no con una regex de rango) para evitar cualquier ambigüedad de escapes.
+ * Mismo trato para NaN/Infinity y fechas inválidas, que tampoco son valores
+ * XML válidos.
+ */
+const INVALID_XML_RANGES: Array<[number, number]> = [
+  [0x00, 0x08],
+  [0x0b, 0x0c],
+  [0x0e, 0x1f],
+  [0xfffe, 0xffff],
+];
+
+function isInvalidXmlCodePoint(code: number): boolean {
+  return INVALID_XML_RANGES.some(([start, end]) => code >= start && code <= end);
+}
+
+function stripInvalidXmlChars(input: string): string {
+  let out = "";
+  for (const ch of input) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (!isInvalidXmlCodePoint(code)) out += ch;
+  }
+  return out;
+}
+
+function sanitizeValue(value: unknown): unknown {
+  if (typeof value === "string") return stripInvalidXmlChars(value);
+  if (typeof value === "number" && !Number.isFinite(value)) return null;
+  if (value instanceof Date && Number.isNaN(value.getTime())) return null;
+  return value;
+}
+
+function sanitizeRow(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) out[key] = sanitizeValue(value);
+  return out;
+}
+
+/**
  * Cada hoja lleva la columna `identification` (aunque ya venga de un include
  * anidado) para que el workbook sea relacionable en Excel por identificación
  * sin tener que ir hoja por hoja resolviendo el personId interno.
@@ -245,5 +289,5 @@ function addSheet(
   const sheet = workbook.addWorksheet(name);
   sheet.columns = columns;
   sheet.getRow(1).font = { bold: true };
-  if (rows.length > 0) sheet.addRows(rows);
+  if (rows.length > 0) sheet.addRows(rows.map(sanitizeRow));
 }
