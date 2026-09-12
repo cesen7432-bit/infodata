@@ -28,6 +28,14 @@ export function AppHeader() {
               API keys
             </NavLink>
           )}
+          {user?.role === "ADMIN" && (
+            <NavLink to="/exportar" className={({ isActive }) => (isActive ? "app-nav-link is-active" : "app-nav-link")}>
+              Exportar
+            </NavLink>
+          )}
+          <NavLink to="/mi-cuenta" className={({ isActive }) => (isActive ? "app-nav-link is-active" : "app-nav-link")}>
+            Mi cuenta
+          </NavLink>
           <NavLink to="/ayuda" className={({ isActive }) => (isActive ? "app-nav-link is-active" : "app-nav-link")}>
             Ayuda
           </NavLink>

@@ -12,3 +12,7 @@ export function logout() {
 export function me() {
   return api.get<CurrentUser>("/auth/me");
 }
+
+export function changePassword(currentPassword: string, newPassword: string) {
+  return api.patch<void>("/auth/password", { currentPassword, newPassword });
+}

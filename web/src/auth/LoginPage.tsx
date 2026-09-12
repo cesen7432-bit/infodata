@@ -12,9 +12,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const locationState = location.state as { from?: Location; message?: string } | null;
+
   if (user) {
-    const from = (location.state as { from?: Location } | null)?.from;
-    return <Navigate to={from?.pathname ?? "/"} replace />;
+    return <Navigate to={locationState?.from?.pathname ?? "/"} replace />;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -36,6 +37,8 @@ export function LoginPage() {
         <BrandLogo size="lg" />
         <h1>Iniciar sesión</h1>
         <p className="auth-sub">Consulta y registro consolidado de identidad, en un solo lugar.</p>
+
+        {locationState?.message && <p className="form-success">{locationState.message}</p>}
 
         <form onSubmit={handleSubmit} noValidate>
           <label className="field">

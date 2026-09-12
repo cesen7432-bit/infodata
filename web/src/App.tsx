@@ -7,7 +7,9 @@ import { DashboardPage } from "./dashboard/DashboardPage";
 import { UsersPage } from "./admin/UsersPage";
 import { BulkPage } from "./admin/BulkPage";
 import { ApiKeysPage } from "./admin/ApiKeysPage";
+import { ExportPage } from "./admin/ExportPage";
 import { HelpPage } from "./help/HelpPage";
+import { AccountPage } from "./account/AccountPage";
 
 export default function App() {
   return (
@@ -49,6 +51,24 @@ export default function App() {
               <RequireAdmin>
                 <ApiKeysPage />
               </RequireAdmin>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/exportar"
+          element={
+            <RequireAuth>
+              <RequireAdmin>
+                <ExportPage />
+              </RequireAdmin>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/mi-cuenta"
+          element={
+            <RequireAuth>
+              <AccountPage />
             </RequireAuth>
           }
         />

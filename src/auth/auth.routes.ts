@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth } from "./auth.middleware";
-import { InvalidCredentialsError, login, logout } from "./auth.service";
+import { changeOwnPassword, InvalidCredentialsError, login, logout } from "./auth.service";
 
 export const authRouter = Router();
 
@@ -49,5 +49,34 @@ authRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     res.json(req.user);
+  })
+);
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
+});
+
+/** Cualquier usuario logueado cambia su propia contraseña — requiere la actual. */
+authRouter.patch(
+  "/password",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const parsed = changePasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
+      return;
+    }
+
+    try {
+      await changeOwnPassword(req.user!.id, parsed.data.currentPassword, parsed.data.newPassword);
+      res.status(204).end();
+    } catch (err) {
+      if (err instanceof InvalidCredentialsError) {
+        res.status(401).json({ error: "La contraseña actual no es correcta" });
+        return;
+      }
+      throw err;
+    }
   })
 );

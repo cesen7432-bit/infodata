@@ -7,6 +7,7 @@ import { usersRouter } from "./users/users.routes";
 import { consultaRouter } from "./consulta/consulta.routes";
 import { bulkRouter } from "./admin/bulk.routes";
 import { apiKeysRouter } from "./admin/apiKeys.routes";
+import { exportRouter } from "./admin/export.routes";
 import { logger } from "./lib/logger";
 
 // El build de la SPA (web/dist) vive al mismo nivel que src/ y dist/, así
@@ -38,6 +39,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/admin/users", usersRouter);
 app.use("/api/admin/api-keys", apiKeysRouter);
 app.use("/api/admin/consulta-masiva", bulkRouter);
+app.use("/api/admin/export", exportRouter);
 app.use("/api/consulta", consultaRouter);
 
 // Estáticos de la SPA + fallback de rutas de cliente (React Router). Se
