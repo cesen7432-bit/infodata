@@ -413,15 +413,24 @@ export async function syncLaborRecords(personId: string, source: Source, records
 export async function getSourceFreshness(personId: string, source: Source): Promise<Date | null> {
   switch (source) {
     case Source.DATADIVERSERVICE: {
-      const [addr, phone, email, family] = await Promise.all([
+      const [addr, phone, email, family, vehicle, labor, property] = await Promise.all([
         prisma.address.findFirst({ where: { personId, source }, orderBy: { lastSeenAt: "desc" } }),
         prisma.phone.findFirst({ where: { personId, source }, orderBy: { lastSeenAt: "desc" } }),
         prisma.email.findFirst({ where: { personId, source }, orderBy: { lastSeenAt: "desc" } }),
         prisma.familyLink.findFirst({ where: { personId, source }, orderBy: { lastSeenAt: "desc" } }),
+        prisma.vehicle.findFirst({ where: { personId, source }, orderBy: { lastSeenAt: "desc" } }),
+        prisma.laborRecord.findFirst({ where: { personId, source }, orderBy: { lastSeenAt: "desc" } }),
+        prisma.propertyRecord.findFirst({ where: { personId, source }, orderBy: { lastSeenAt: "desc" } }),
       ]);
-      const dates = [addr?.lastSeenAt, phone?.lastSeenAt, email?.lastSeenAt, family?.lastSeenAt].filter(
-        (d): d is Date => !!d
-      );
+      const dates = [
+        addr?.lastSeenAt,
+        phone?.lastSeenAt,
+        email?.lastSeenAt,
+        family?.lastSeenAt,
+        vehicle?.lastSeenAt,
+        labor?.lastSeenAt,
+        property?.lastSeenAt,
+      ].filter((d): d is Date => !!d);
       return dates.length ? new Date(Math.max(...dates.map((d) => d.getTime()))) : null;
     }
     case Source.SATJE: {
