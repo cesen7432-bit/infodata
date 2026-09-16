@@ -1,4 +1,4 @@
-import { Briefcase, Car, Contact, CreditCard, Landmark, Phone, Scale, Ticket, Users, Home } from "lucide-react";
+import { Briefcase, Car, Contact, CreditCard, Landmark, Mail, Phone, Scale, Ticket, User, Users, Home } from "lucide-react";
 import { CSSProperties, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ExpedienteResponse, Source, SourceStatus } from "../../api/types";
@@ -122,13 +122,22 @@ export function ExpedienteView({ loading, error, data, onSearch }: ExpedienteVie
     return (
       <div className="expediente-empty expediente-welcome">
         <h3>¿A quién buscamos hoy?</h3>
-        <p>Ingresa una cédula, un RUC, un teléfono o una placa. El expediente completo aparece acá, organizado por tipo de información.</p>
+        <p>
+          Ingresa una cédula, un RUC, un nombre, un correo, un teléfono o una placa. El expediente completo aparece
+          acá, organizado por tipo de información.
+        </p>
         <div className="welcome-modes">
           <span className="welcome-mode" style={{ "--tint": "var(--accent-2)" } as CSSProperties}>
             <CreditCard size={15} strokeWidth={2} aria-hidden="true" /> Cédula
           </span>
           <span className="welcome-mode" style={{ "--tint": "var(--src-sri)" } as CSSProperties}>
             <Landmark size={15} strokeWidth={2} aria-hidden="true" /> RUC
+          </span>
+          <span className="welcome-mode" style={{ "--tint": "var(--good)" } as CSSProperties}>
+            <User size={15} strokeWidth={2} aria-hidden="true" /> Nombre
+          </span>
+          <span className="welcome-mode" style={{ "--tint": "var(--warn)" } as CSSProperties}>
+            <Mail size={15} strokeWidth={2} aria-hidden="true" /> Correo
           </span>
           <span className="welcome-mode" style={{ "--tint": "var(--accent)" } as CSSProperties}>
             <Phone size={15} strokeWidth={2} aria-hidden="true" /> Teléfono
@@ -144,6 +153,30 @@ export function ExpedienteView({ loading, error, data, onSearch }: ExpedienteVie
     );
   }
 
+  if (data.candidates && data.candidates.length > 0) {
+    return (
+      <div className="expediente-empty">
+        <h3>Varias personas coinciden con &ldquo;{data.identification}&rdquo;</h3>
+        <p>Elige a quién quieres consultar.</p>
+        <ul className="fact-list">
+          {data.candidates.map((c) => (
+            <li key={c.identification} className="fact-item fact-item-row">
+              <div className="fact-main">
+                <span>{c.fullName || "Nombre no disponible"}</span>
+                <span className="fact-meta">{c.identification}</span>
+              </div>
+              <div className="fact-tags">
+                <button type="button" className="btn btn-tiny" onClick={() => onSearch(c.identification)}>
+                  Consultar
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   const sourceStatuses = Object.values(data.sources).filter((s): s is SourceStatus => !!s);
   const sourcesChecked = sourceStatuses.length > 0;
   const anyErrored = sourceStatuses.some((s) => s.resolvedFrom === "error");
@@ -154,7 +187,7 @@ export function ExpedienteView({ loading, error, data, onSearch }: ExpedienteVie
         <h3>Sin resultados para {data.identification}</h3>
         <p>
           {!sourcesChecked
-            ? "No reconocemos ese formato — prueba con una cédula (10 dígitos), un RUC (13 dígitos), un teléfono o una placa."
+            ? "No reconocemos ese formato ni coincide con nada guardado — prueba con una cédula (10 dígitos), un RUC (13 dígitos), un nombre, un correo, un teléfono o una placa."
             : anyErrored
               ? "Hubo un error durante la búsqueda — no es que no exista información, la consulta falló a mitad de camino. Intenta de nuevo."
               : "No se encontró información disponible."}

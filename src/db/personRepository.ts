@@ -478,6 +478,54 @@ export async function findIdentificationByPlate(plate: string): Promise<string |
   return fine?.person.identification ?? null;
 }
 
+export interface PersonCandidate {
+  identification: string;
+  fullName: string | null;
+}
+
+const CANDIDATE_LIMIT = 8;
+
+function uniqueCandidates(persons: PersonCandidate[]): PersonCandidate[] {
+  const seen = new Set<string>();
+  const out: PersonCandidate[] = [];
+  for (const p of persons) {
+    if (seen.has(p.identification)) continue;
+    seen.add(p.identification);
+    out.push(p);
+  }
+  return out.slice(0, CANDIDATE_LIMIT);
+}
+
+/** Búsqueda inversa por teléfono — puede haber más de una persona con el mismo número (ej. línea familiar). */
+export async function findCandidatesByPhone(normalizedPhone: string): Promise<PersonCandidate[]> {
+  const rows = await prisma.phone.findMany({
+    where: { phoneNumber: normalizedPhone, isCurrent: true },
+    include: { person: { select: { identification: true, fullName: true } } },
+    orderBy: { lastSeenAt: "desc" },
+  });
+  return uniqueCandidates(rows.map((r) => r.person));
+}
+
+/** Búsqueda inversa por correo — mismo caso, puede compartirse entre varias personas. */
+export async function findCandidatesByEmail(email: string): Promise<PersonCandidate[]> {
+  const rows = await prisma.email.findMany({
+    where: { address: { equals: email, mode: "insensitive" }, isCurrent: true },
+    include: { person: { select: { identification: true, fullName: true } } },
+    orderBy: { lastSeenAt: "desc" },
+  });
+  return uniqueCandidates(rows.map((r) => r.person));
+}
+
+/** Búsqueda por nombre (coincidencia parcial, ya que casi nunca es exacto) dentro de lo ya scrapeado. */
+export async function findCandidatesByName(name: string): Promise<PersonCandidate[]> {
+  return prisma.person.findMany({
+    where: { fullName: { contains: name, mode: "insensitive" } },
+    select: { identification: true, fullName: true },
+    orderBy: { fullName: "asc" },
+    take: CANDIDATE_LIMIT,
+  });
+}
+
 /** Devuelve la vista consolidada de una persona con todos sus hechos vigentes, agrupados por fuente. */
 export async function getConsolidatedPerson(identification: string) {
   return prisma.person.findUnique({

@@ -167,10 +167,17 @@ export interface SourceStatus {
   blockedCaptcha: boolean;
 }
 
+export interface PersonCandidate {
+  identification: string;
+  fullName: string | null;
+}
+
 export interface ExpedienteResponse {
   identification: string;
   sources: Partial<Record<string, SourceStatus>>;
   person: Person | null;
+  /** Presente cuando la búsqueda (teléfono, correo o nombre) calzó con más de una persona. */
+  candidates?: PersonCandidate[];
 }
 
 export interface HistoryItem {

@@ -24,10 +24,10 @@ export function SearchBar({ onSearch, loading, value }: SearchBarProps) {
     <form className="search-bar" onSubmit={handleSubmit}>
       <input
         type="text"
-        placeholder="Cédula, RUC, teléfono o placa"
+        placeholder="Cédula, RUC, nombre, correo, teléfono o placa"
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        aria-label="Cédula o RUC a consultar"
+        aria-label="Cédula, RUC, nombre, correo, teléfono o placa a consultar"
         autoFocus
       />
       <button type="submit" className="btn btn-primary" disabled={loading || !input.trim()}>

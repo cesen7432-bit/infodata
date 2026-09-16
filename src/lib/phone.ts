@@ -42,3 +42,8 @@ export function looksLikePlate(raw: string): boolean {
 export function normalizePlate(raw: string): string {
   return raw.replace(/[\s-]/g, "").toUpperCase();
 }
+
+/** true si el texto tiene forma de correo electrónico. */
+export function looksLikeEmail(raw: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.trim());
+}

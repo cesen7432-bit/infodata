@@ -5,10 +5,17 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { resolveConsulta } from "./consulta.service";
 import { toContactView } from "./contactView";
 import { getSourceHandler, SOURCE_SLUGS, ALL_SOURCES } from "../scrapers/registry";
-import { findIdentificationByPhone, findIdentificationByPlate, getConsolidatedPerson } from "../db/personRepository";
+import {
+  findCandidatesByEmail,
+  findCandidatesByName,
+  findCandidatesByPhone,
+  findIdentificationByPlate,
+  getConsolidatedPerson,
+  PersonCandidate,
+} from "../db/personRepository";
 import { getRecentSearches, recordSearch } from "./searchHistory.service";
 import { logger } from "../lib/logger";
-import { looksLikePhone, looksLikePlate, normalizePhone, normalizePlate } from "../lib/phone";
+import { looksLikeEmail, looksLikePhone, looksLikePlate, normalizePhone, normalizePlate } from "../lib/phone";
 import { findOwnerDniByPlate } from "../scrapers/datadiverservice/adapter";
 
 export const consultaRouter = Router();
@@ -34,6 +41,49 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       }
     );
   });
+}
+
+/**
+ * El texto no tiene forma de cédula/RUC — puede ser un teléfono, una placa,
+ * un correo o un nombre. Todo esto es búsqueda inversa dentro de lo ya
+ * scrapeado (no dispara ninguna consulta externa nueva), salvo la placa, que
+ * sí tiene un intento en vivo de respaldo (ver más abajo). A diferencia de
+ * cédula/RUC/placa, teléfono/correo/nombre pueden calzar con más de una
+ * persona — de ahí que esto devuelva una lista, no un solo resultado.
+ */
+async function resolveCandidates(rawInput: string): Promise<PersonCandidate[]> {
+  if (looksLikePhone(rawInput)) {
+    return findCandidatesByPhone(normalizePhone(rawInput));
+  }
+
+  if (looksLikePlate(rawInput)) {
+    const plate = normalizePlate(rawInput);
+    const dni = await findIdentificationByPlate(plate);
+    if (dni) return [{ identification: dni, fullName: null }];
+
+    // Todavía no está en nuestra base — DataDiverService responde placa →
+    // dueño directo, así que vale la pena un intento en vivo antes de
+    // rendirse (no pasa por la cola: es una búsqueda puntual, no un scrape completo).
+    try {
+      const liveDni = await findOwnerDniByPlate(plate);
+      if (liveDni) return [{ identification: liveDni, fullName: null }];
+    } catch (err) {
+      logger.warn("búsqueda en vivo por placa falló", { plate, error: (err as Error).message });
+    }
+    return [];
+  }
+
+  if (looksLikeEmail(rawInput)) {
+    return findCandidatesByEmail(rawInput.toLowerCase());
+  }
+
+  // Cualquier otra cosa con al menos una letra se trata como nombre —
+  // descarta ruido puramente numérico que no calzó ningún formato conocido.
+  if (rawInput.length >= 3 && /[a-zA-Z]/.test(rawInput)) {
+    return findCandidatesByName(rawInput);
+  }
+
+  return [];
 }
 
 // Ruta literal — debe ir antes de "/:identificacion" y "/:fuente/:identificacion",
@@ -66,33 +116,26 @@ consultaRouter.get(
     let identificacion = rawInput;
     let applicableSources = ALL_SOURCES.filter((source) => getSourceHandler(source).validateIdentification(identificacion));
 
-    // No es cédula ni RUC de ninguna fuente — puede ser un teléfono o una
-    // placa. Esto es una búsqueda inversa dentro de lo ya scrapeado, no
-    // dispara ninguna consulta externa nueva.
+    // No es cédula ni RUC de ninguna fuente — puede ser un teléfono, una
+    // placa, un correo o un nombre.
     if (applicableSources.length === 0) {
-      let foundBy: string | null = null;
+      const candidates = await resolveCandidates(rawInput);
 
-      if (looksLikePhone(rawInput)) {
-        foundBy = await findIdentificationByPhone(normalizePhone(rawInput));
-      }
-      if (!foundBy && looksLikePlate(rawInput)) {
-        const plate = normalizePlate(rawInput);
-        foundBy = await findIdentificationByPlate(plate);
-
-        // Todavía no está en nuestra base — DataDiverService responde placa
-        // → dueño directo, así que vale la pena un intento en vivo antes de
-        // rendirse (no pasa por la cola: es una búsqueda puntual, no un scrape completo).
-        if (!foundBy) {
-          try {
-            foundBy = await findOwnerDniByPlate(plate);
-          } catch (err) {
-            logger.warn("búsqueda en vivo por placa falló", { plate, error: (err as Error).message });
-          }
+      if (candidates.length > 1) {
+        // Ambiguo: teléfono/correo compartido o coincidencia parcial de
+        // nombre con varias personas. Por API key no hay quién elija de una
+        // lista del otro lado, así que se pide precisión en vez de adivinar.
+        if (apiKeyMode) {
+          res.status(400).json({ error: "La búsqueda coincide con varias personas; especifica la identificación exacta" });
+          return;
         }
+        if (req.user) await recordSearch(req.user.id, rawInput, true);
+        res.json({ identification: rawInput, sources: {}, person: null, candidates });
+        return;
       }
 
-      if (foundBy) {
-        identificacion = foundBy;
+      if (candidates.length === 1) {
+        identificacion = candidates[0].identification;
         applicableSources = ALL_SOURCES.filter((source) => getSourceHandler(source).validateIdentification(identificacion));
       }
     }
