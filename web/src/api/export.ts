@@ -4,10 +4,13 @@ import { ApiError, getToken } from "./client";
  * Descarga binaria (.xlsx) — no puede pasar por el helper `api.*`, que
  * siempre espera un cuerpo JSON. Arma su propia request con el token y
  * dispara la descarga vía un link temporal.
+ *
+ * `sheets` vacío o ausente = todas las hojas.
  */
-export async function downloadPersonsExport(): Promise<void> {
+export async function downloadPersonsExport(sheets?: string[]): Promise<void> {
   const token = getToken();
-  const res = await fetch(`${import.meta.env.BASE_URL}api/admin/export/excel`, {
+  const query = sheets && sheets.length > 0 ? `?sheets=${sheets.join(",")}` : "";
+  const res = await fetch(`${import.meta.env.BASE_URL}api/admin/export/excel${query}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 

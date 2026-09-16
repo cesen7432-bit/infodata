@@ -58,8 +58,11 @@ app.use((req, res) => {
   res.status(404).json({ error: `Ruta no encontrada: ${req.method} ${req.path}` });
 });
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+app.use((err: Error, _req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error("Error no manejado", { error: err.message, stack: err.stack });
+  // Una respuesta que ya empezó a transmitirse (p.ej. el streaming del
+  // export a Excel) no puede reiniciar sus headers — delegar a Express, que
+  // simplemente cierra la conexión.
+  if (res.headersSent) return next(err);
   res.status(500).json({ error: "Error interno del servidor" });
 });

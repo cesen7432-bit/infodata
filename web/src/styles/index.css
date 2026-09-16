@@ -1094,6 +1094,51 @@ ul {
   cursor: pointer;
 }
 
+.sheet-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.sheet-toggle.is-active {
+  background: var(--accent-2-soft);
+  color: var(--accent-2);
+}
+
+.sheet-toggle-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.sheet-toggle-count {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.sheet-toggle-actions {
+  display: flex;
+  gap: 14px;
+}
+
+.btn-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-2);
+  cursor: pointer;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
 /* ── Familiares agrupados por cercanía de parentesco ─────────── */
 
 .family-panel {
