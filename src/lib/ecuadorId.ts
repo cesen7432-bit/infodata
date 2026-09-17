@@ -54,3 +54,20 @@ export function resolveCedulaFromIdentification(identification: string): string 
   }
   return null;
 }
+
+/**
+ * true si el RUC (13 dígitos) es de una sociedad privada (tercer dígito 9) o
+ * una entidad del sector público (tercer dígito 6) — nunca hay una cédula de
+ * persona natural detrás, aunque `isValidCedula`/`resolveCedulaFromIdentification`
+ * "validen" esos mismos 10 dígitos base como si lo fuera (esas funciones
+ * verifican el formato numérico, no si en verdad es la cédula de alguien —
+ * el tercer dígito 6/9 pasa sin checksum ahí a propósito, para que
+ * `isValidRuc` pueda reusar la misma verificación de rango/provincia).
+ * Este helper es el que sí distingue las dos cosas cuando importa (ej. elegir
+ * qué endpoint de DataDiverService consultar).
+ */
+export function isCompanyRuc(identification: string): boolean {
+  if (identification.length !== 13 || !isValidRuc(identification)) return false;
+  const thirdDigit = parseInt(identification[2], 10);
+  return thirdDigit === 6 || thirdDigit === 9;
+}

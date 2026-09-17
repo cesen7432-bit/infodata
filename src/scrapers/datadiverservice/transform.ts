@@ -11,6 +11,7 @@ import {
   VehicleInput,
 } from "../types/scraper.types";
 import { RawFamilyData } from "./family";
+import { RawCompanyContact } from "./http";
 
 interface RawGeneral {
   id?: string | number;
@@ -93,6 +94,47 @@ export function transformEmails(contact: RawContact): EmailInput[] {
     out.push({ address: addr, isActive: true });
   }
   return out;
+}
+
+/** Móvil ecuatoriano: 10 dígitos ("09XXXXXXXX"). Fijo: 9 ("0" + código de área + 7 dígitos). */
+function classifyPhoneType(normalizedPhone: string): string | null {
+  if (normalizedPhone.length === 10) return "MOVIL";
+  if (normalizedPhone.length === 9) return "FIJO";
+  return null;
+}
+
+/**
+ * /crm/company/info/contact no distingue teléfono de correo por un campo
+ * propio confiable (su `tipo` no correlaciona con MOVIL/FIJO) — se infiere
+ * del valor: "@" es correo, si no, la longitud del número decide entre móvil
+ * y fijo. La respuesta además repite el mismo contacto muchas veces, así que
+ * se dedupea acá antes de llegar a syncPhones/syncEmails.
+ */
+export function transformCompanyContact(raw: RawCompanyContact[]): { phones: PhoneInput[]; emails: EmailInput[] } {
+  const phones: PhoneInput[] = [];
+  const emails: EmailInput[] = [];
+  const seenPhones = new Set<string>();
+  const seenEmails = new Set<string>();
+
+  for (const item of raw) {
+    const value = String(item?.contacto ?? "").trim();
+    if (!value) continue;
+
+    if (value.includes("@")) {
+      const addr = value.toLowerCase();
+      if (seenEmails.has(addr)) continue;
+      seenEmails.add(addr);
+      emails.push({ address: addr, isActive: true });
+      continue;
+    }
+
+    const normalized = normalizePhone(value);
+    if (!normalized || seenPhones.has(normalized)) continue;
+    seenPhones.add(normalized);
+    phones.push({ phoneNumber: normalized, phoneType: classifyPhoneType(normalized) });
+  }
+
+  return { phones, emails };
 }
 
 export function transformAddresses(contact: RawContact, general: RawGeneral): AddressInput[] {

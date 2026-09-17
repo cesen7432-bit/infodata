@@ -1,10 +1,11 @@
 import { Source } from "@prisma/client";
-import { resolveCedulaFromIdentification } from "../../lib/ecuadorId";
+import { isCompanyRuc, isValidRuc, resolveCedulaFromIdentification } from "../../lib/ecuadorId";
 import { FetchOutcome, IdentityScrapeResult, SourceHandler } from "../types/scraper.types";
-import { fetchAll, findByCarRegistration } from "./http";
+import { fetchAll, fetchCompanyContact, findByCarRegistration } from "./http";
 import { getFamily } from "./family";
 import {
   transformAddresses,
+  transformCompanyContact,
   transformDataDiverProperties,
   transformEmails,
   transformFamily,
@@ -61,16 +62,33 @@ export async function findOwnerDniByPlate(plate: string): Promise<string | null>
 export const dataDiverServiceHandler: SourceHandler = {
   source: Source.DATADIVERSERVICE,
 
+  // Persona natural (cédula, o RUC que deriva de una) además de RUC de
+  // sociedad — este último solo trae contacto (ver `fetch`), no identidad.
   validateIdentification(identification: string): boolean {
-    return resolveCedulaFromIdentification(identification) !== null;
+    return resolveCedulaFromIdentification(identification) !== null || isValidRuc(identification);
   },
 
   async fetch(identification: string): Promise<FetchOutcome> {
-    const cedula = resolveCedulaFromIdentification(identification);
-    if (!cedula) return { found: false };
+    // Se revisa primero: un RUC de sociedad "resuelve" a una cédula falsa por
+    // `resolveCedulaFromIdentification` (ver nota en isCompanyRuc), y esa
+    // cédula nunca tiene datos en /crn/client/info/* — hay que enrutarlo a
+    // /crm/company/info/contact antes de caer en la rama de persona natural.
+    if (isCompanyRuc(identification)) {
+      const raw = await fetchCompanyContact(identification);
+      const { phones, emails } = transformCompanyContact(raw);
+      if (phones.length === 0 && emails.length === 0) return { found: false };
 
-    const result = await fetchIdentity(cedula);
-    return { found: result.found, raw: result };
+      const result: IdentityScrapeResult = { found: true, phones, emails, rawPayload: raw };
+      return { found: true, raw: result };
+    }
+
+    const cedula = resolveCedulaFromIdentification(identification);
+    if (cedula) {
+      const result = await fetchIdentity(cedula);
+      return { found: result.found, raw: result };
+    }
+
+    return { found: false };
   },
 
   async persist(identification: string, raw: unknown) {

@@ -5,6 +5,7 @@ import { dataDiverAuth } from "./auth";
 
 const BASE_URL = `${env.DATADIVERSERVICE_API_URL}/ds/crn/client/info`;
 const CLIENT_ROOT = `${env.DATADIVERSERVICE_API_URL}/ds/crn/client`;
+const COMPANY_ROOT = `${env.DATADIVERSERVICE_API_URL}/ds/crm/company`;
 
 interface RawFetchAll {
   general: Record<string, any> | null;
@@ -116,6 +117,24 @@ export async function fetchAll(dni: string): Promise<RawFetchAll> {
  */
 export async function findByCarRegistration(plate: string): Promise<Record<string, any>[]> {
   const { data, status } = await getUrl(`${CLIENT_ROOT}/findByCarRegistration`, { carRegistration: plate });
+  if (status !== 200 || !Array.isArray(data)) return [];
+  return data;
+}
+
+export interface RawCompanyContact {
+  contacto: string;
+  tipo: string;
+}
+
+/**
+ * Contacto de RUCs de sociedad (los que no derivan de una cédula de persona
+ * natural, ej. "...9..." o "...6..." en la tercera posición) — vive fuera de
+ * /info/ y de /crn/client/*, es /ds/crm/company/info/contact. Solo trae
+ * teléfonos y correos mezclados en una lista plana (sin distinguir tipo de
+ * forma confiable ni deduplicar — eso lo hace `transformCompanyContact`).
+ */
+export async function fetchCompanyContact(ruc: string): Promise<RawCompanyContact[]> {
+  const { data, status } = await getUrl(`${COMPANY_ROOT}/info/contact`, { ruc });
   if (status !== 200 || !Array.isArray(data)) return [];
   return data;
 }
