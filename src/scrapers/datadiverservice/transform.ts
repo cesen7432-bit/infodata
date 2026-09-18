@@ -75,7 +75,10 @@ export function transformPhones(contact: RawContact): PhoneInput[] {
     const normalized = normalizePhone(raw);
     if (!normalized || seen.has(normalized)) continue;
     seen.add(normalized);
-    out.push({ phoneNumber: normalized, phoneType: phone.type || phone.tipo || null });
+    // El "tipo"/"type" que trae la fuente no es confiable ni consistente
+    // (valores libres, códigos numéricos, etc.) — la única regla que sirve
+    // en todos los casos es la del propio número (ver classifyPhoneType).
+    out.push({ phoneNumber: normalized, phoneType: classifyPhoneType(normalized) });
   }
   return out;
 }
@@ -96,11 +99,13 @@ export function transformEmails(contact: RawContact): EmailInput[] {
   return out;
 }
 
-/** Móvil ecuatoriano: 10 dígitos ("09XXXXXXXX"). Fijo: 9 ("0" + código de área + 7 dígitos). */
-function classifyPhoneType(normalizedPhone: string): string | null {
-  if (normalizedPhone.length === 10) return "MOVIL";
-  if (normalizedPhone.length === 9) return "FIJO";
-  return null;
+/**
+ * Móvil ecuatoriano: siempre 10 dígitos y empieza con "09". Cualquier otra
+ * cosa (9 dígitos "0" + código de área, o un formato raro que se nos coló)
+ * se clasifica como fijo — nunca null, el tipo solo puede ser uno de los dos.
+ */
+function classifyPhoneType(normalizedPhone: string): "MOVIL" | "FIJO" {
+  return normalizedPhone.startsWith("09") && normalizedPhone.length === 10 ? "MOVIL" : "FIJO";
 }
 
 /**
