@@ -12,10 +12,14 @@ const PAGE_SIZE = "75"; // el máximo que ofrece el propio selector del paginado
  * "Todos", así se trae el mes completo en una sola búsqueda).
  */
 async function setSearchFilters(page: Page, period: Period, documentType: DocumentTypeCode): Promise<void> {
-  await page.goto(env.SRI_INVOICES_COMPROBANTES_URL, { waitUntil: "networkidle2" });
+  // "networkidle2" cuelga acá — esta app (JSF/PrimeFaces) tiene tráfico de
+  // fondo (polling de sesión, keepalive) que nunca deja la red "quieta" el
+  // tiempo que pide esa condición. domcontentloaded + el waitForSelector de
+  // abajo (que sí confirma contenido real) es más confiable.
+  await page.goto(env.SRI_INVOICES_COMPROBANTES_URL, { waitUntil: "domcontentloaded" });
 
   try {
-    await page.waitForSelector('[id="frmPrincipal:ano"]', { timeout: 20000 });
+    await page.waitForSelector('[id="frmPrincipal:ano"]', { timeout: 30000 });
   } catch (err) {
     // Diagnóstico: si esto falla, lo más probable es que la navegación haya
     // terminado en otro lado (sesión no establecida a tiempo, login que

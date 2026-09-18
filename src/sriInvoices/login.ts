@@ -49,8 +49,12 @@ export async function loginToSriEnLinea(ruc: string, password: string): Promise<
     await page.type("#password", password, { delay: 30 });
 
     logger.info("[sri-invoices] enviando login...");
+    // "networkidle2" cuelga en este portal (polling/keepalive de fondo que
+    // nunca deja la red quieta) — domcontentloaded alcanza para saber que
+    // hubo una navegación; el chequeo de #usuario/title de abajo es lo que
+    // realmente confirma si el login funcionó.
     await Promise.all([
-      page.waitForNavigation({ waitUntil: "networkidle2", timeout: 30000 }).catch(() => null),
+      page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null),
       page.keyboard.press("Enter"),
     ]);
 
