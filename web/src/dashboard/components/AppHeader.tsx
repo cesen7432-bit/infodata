@@ -33,6 +33,11 @@ export function AppHeader() {
               Exportar
             </NavLink>
           )}
+          {user?.role === "ADMIN" && (
+            <NavLink to="/sri-comprobantes" className={({ isActive }) => (isActive ? "app-nav-link is-active" : "app-nav-link")}>
+              Comprobantes SRI
+            </NavLink>
+          )}
           <NavLink to="/mi-cuenta" className={({ isActive }) => (isActive ? "app-nav-link is-active" : "app-nav-link")}>
             Mi cuenta
           </NavLink>

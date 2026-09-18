@@ -41,6 +41,13 @@ enum BulkItemStatus {
   CANCELLED
 }
 
+enum SriInvoiceJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 // ─────────────────────────────────────────────────────────────
 // Identidad
 // ─────────────────────────────────────────────────────────────
@@ -334,10 +341,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bulkJobs      BulkJob[]
-  sessions      Session[]
-  searchHistory SearchHistory[]
-  apiKeys       ApiKey[]
+  bulkJobs       BulkJob[]
+  sessions       Session[]
+  searchHistory  SearchHistory[]
+  apiKeys        ApiKey[]
+  sriInvoiceJobs SriInvoiceJob[]
 }
 
 /// Clave de API para integraciones máquina-a-máquina: otro sistema consulta
@@ -423,4 +431,31 @@ model BulkJobItem {
 
   @@index([bulkJobId])
   @@index([identification])
+}
+
+// Descarga de comprobantes electrónicos recibidos (SRI en línea) para un RUC.
+// A propósito NUNCA guarda usuario/contraseña del SRI — esas credenciales
+// solo viajan en el payload del job en la cola (con removeOnComplete/Fail
+// inmediato) y se usan una sola vez para esa corrida.
+model SriInvoiceJob {
+  id              String              @id @default(cuid())
+  requestedById   String
+  requestedBy     User                @relation(fields: [requestedById], references: [id])
+  ruc             String
+  documentType    Int
+  periodFromYear  Int
+  periodFromMonth Int
+  periodToYear    Int
+  periodToMonth   Int
+  status          SriInvoiceJobStatus @default(PENDING)
+  totalFound      Int?
+  totalDownloaded Int?
+  errorMessage    String?
+  resultFilePath  String?
+
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  @@index([requestedById])
 }

@@ -48,11 +48,17 @@ services:
     environment:
       DATABASE_URL: postgresql://expediente:expediente@postgres:5432/expediente_unico
       REDIS_URL: redis://redis:6379
+      SRI_INVOICES_STORAGE_DIR: /app/data/sri-invoices
     ports:
       # Host 3031 -> contenedor 3000. Un solo puerto para todo: Express sirve
       # el build de React como estáticos desde el mismo proceso, no hay
       # servidor de frontend aparte que necesite su propio puerto.
       - "3031:3000"
+    volumes:
+      # El worker escribe el .zip de comprobantes ahí y la api lo sirve para
+      # descargar — sin volumen compartido cada contenedor vería su propio
+      # filesystem y la api nunca encontraría el archivo.
+      - sri_invoices_data:/app/data/sri-invoices
     # El seed es idempotente (no hace nada si ya hay usuarios) — seguro correrlo en cada arranque.
     # La primera vez, el admin generado queda en `docker compose logs api` (ver README).
     command: sh -c "npx prisma migrate deploy && node prisma/seed.js && node dist/server.js"
@@ -70,6 +76,9 @@ services:
     environment:
       DATABASE_URL: postgresql://expediente:expediente@postgres:5432/expediente_unico
       REDIS_URL: redis://redis:6379
+      SRI_INVOICES_STORAGE_DIR: /app/data/sri-invoices
+    volumes:
+      - sri_invoices_data:/app/data/sri-invoices
     command: node dist/workers/index.js
     depends_on:
       postgres:
@@ -80,3 +89,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  sri_invoices_data:

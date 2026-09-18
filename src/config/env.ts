@@ -31,6 +31,23 @@ const schema = z.object({
   ANT_URL: z.string().default("https://consultaweb.ant.gob.ec/PortalWEB/paginas/clientes/clp_grid_citaciones.jsp"),
   QUEUE_CONCURRENCY_ANT: z.coerce.number().default(2),
 
+  // Descarga de comprobantes electrónicos recibidos — login real del
+  // contribuyente (no una cuenta compartida), por eso concurrencia baja por
+  // defecto: cada job abre su propia sesión y no conviene machacar el
+  // portal del SRI con logins simultáneos.
+  SRI_INVOICES_KEYCLOAK_AUTH_URL: z
+    .string()
+    .default("https://srienlinea.sri.gob.ec/auth/realms/Internet/protocol/openid-connect/auth"),
+  SRI_INVOICES_CLIENT_ID: z.string().default("app-sri-claves-angular"),
+  SRI_INVOICES_REDIRECT_URI: z.string().default("https://srienlinea.sri.gob.ec/sri-en-linea//contribuyente/perfil"),
+  SRI_INVOICES_COMPROBANTES_URL: z
+    .string()
+    .default(
+      "https://srienlinea.sri.gob.ec/comprobantes-electronicos-internet/pages/consultas/recibidos/comprobantesRecibidos.jsf?&contextoMPT=https://srienlinea.sri.gob.ec/tuportal-internet&pathMPT=Facturaci%F3n%20Electr%F3nica&actualMPT=Comprobantes%20electr%F3nicos%20recibidos%20&linkMPT=%2Fcomprobantes-electronicos-internet%2Fpages%2Fconsultas%2Frecibidos%2FcomprobantesRecibidos.jsf%3F&esFavorito=S"
+    ),
+  SRI_INVOICES_STORAGE_DIR: z.string().default("./data/sri-invoices"),
+  QUEUE_CONCURRENCY_SRI_INVOICES: z.coerce.number().default(1),
+
   HEADLESS: z
     .string()
     .default("true")
