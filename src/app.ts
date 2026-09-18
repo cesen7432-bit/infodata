@@ -17,6 +17,13 @@ const WEB_DIST = path.join(__dirname, "../web/dist");
 
 export const app = express();
 
+// Detrás de un único proxy inverso (Apache, ver docker-compose.yml) — sin
+// esto, Express no confía en X-Forwarded-For y express-rate-limit no puede
+// identificar la IP real de cada usuario (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR).
+// "1" = confía solo en el primer hop, no en toda la cadena que un cliente
+// podría falsear agregando sus propios X-Forwarded-For.
+app.set("trust proxy", 1);
+
 app.use(cors());
 app.use(express.json());
 
