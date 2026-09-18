@@ -49,31 +49,38 @@ async function setSearchFilters(page: Page, period: Period, documentType: Docume
   await page.select('[id="frmPrincipal:cmbTipoComprobante"]', String(documentType));
 }
 
-/** El botón "Consultar" no tiene un id documentado — se ubica por su texto visible dentro del form. */
-async function clickConsultar(page: Page): Promise<void> {
-  const clicked = await page.evaluate(() => {
-    const form = document.getElementById("frmPrincipal");
-    if (!form) return false;
-    const candidates = Array.from(form.querySelectorAll<HTMLElement>('button, input[type="submit"], input[type="button"], a'));
-    const target = candidates.find((el) => {
-      const text = (el.innerText || (el as HTMLInputElement).value || "").trim().toLowerCase();
-      return text === "consultar";
-    });
-    if (!target) return false;
-    target.click();
-    return true;
-  });
+const CONSULTAR_BUTTON_SELECTOR = '[id="frmPrincipal:btnConsultarSinRe"]';
 
-  if (!clicked) {
-    throw new Error('No se encontró el botón "Consultar" en el formulario de comprobantes recibidos');
+function isDialogVisible(): boolean {
+  const el = document.getElementById("dlgpopStatusPrime");
+  return !!el && getComputedStyle(el).visibility !== "hidden";
+}
+
+/**
+ * "btnConsultarSinRe" ("sin reCAPTCHA") es el botón real de Consultar — no
+ * hace falta resolver ningún captcha para usarlo. La tabla de resultados ya
+ * existe en el DOM desde que carga la página (con datos de la consulta
+ * anterior, o vacía), así que esperar a que "aparezca" no sirve para saber
+ * si el AJAX terminó — la señal real es el diálogo "Espere por favor"
+ * (dlgpopStatusPrime) que el propio botón muestra al iniciar y oculta al
+ * terminar (ver su onstart/onsuccess en el HTML).
+ */
+async function clickConsultar(page: Page): Promise<void> {
+  const button = await page.$(CONSULTAR_BUTTON_SELECTOR);
+  if (!button) {
+    throw new Error('No se encontró el botón "Consultar" (frmPrincipal:btnConsultarSinRe) en el formulario de comprobantes recibidos');
   }
 
-  // Es un postback AJAX de PrimeFaces (igual que el radio de arriba) — no
-  // navega, solo actualiza el panel de la tabla.
-  await page
-    .waitForSelector(TABLE_DATA_SELECTOR, { timeout: 20000 })
-    .catch(() => logger.warn("[sri-invoices] tabla de comprobantes no apareció tras Consultar (¿0 resultados?)"));
-  await new Promise((r) => setTimeout(r, 1000));
+  await button.click();
+
+  // Puede que el diálogo nunca llegue a mostrarse si el AJAX es instantáneo
+  // — no es un error, solo se sigue de largo al chequeo de "ya se ocultó".
+  await page.waitForFunction(isDialogVisible, { timeout: 5000 }).catch(() => {});
+  await page.waitForFunction(`!(${isDialogVisible.toString()})()`, { timeout: 30000 }).catch(() => {
+    logger.warn("[sri-invoices] el diálogo de espera no se ocultó a tiempo tras Consultar — se sigue igual");
+  });
+
+  await new Promise((r) => setTimeout(r, 800));
 }
 
 async function setPageSize(page: Page): Promise<void> {
