@@ -14,7 +14,22 @@ const PAGE_SIZE = "75"; // el máximo que ofrece el propio selector del paginado
 async function setSearchFilters(page: Page, period: Period, documentType: DocumentTypeCode): Promise<void> {
   await page.goto(env.SRI_INVOICES_COMPROBANTES_URL, { waitUntil: "networkidle2" });
 
-  await page.waitForSelector('[id="frmPrincipal:ano"]', { timeout: 20000 });
+  try {
+    await page.waitForSelector('[id="frmPrincipal:ano"]', { timeout: 20000 });
+  } catch (err) {
+    // Diagnóstico: si esto falla, lo más probable es que la navegación haya
+    // terminado en otro lado (sesión no establecida a tiempo, login que
+    // volvió a pedirse, una pantalla de error del portal, etc.) — sin esto
+    // el timeout de Puppeteer no dice nada sobre POR QUÉ no apareció el form.
+    const url = page.url();
+    const title = await page.title().catch(() => "?");
+    const bodySnippet = await page
+      .evaluate(() => document.body?.innerText?.slice(0, 400) ?? "(sin body)")
+      .catch((e) => `(evaluate falló: ${(e as Error).message})`);
+    logger.error("[sri-invoices] no apareció el formulario de comprobantes recibidos", { url, title, bodySnippet });
+    throw err;
+  }
+
   await page.select('[id="frmPrincipal:ano"]', String(period.year));
   await page.select('[id="frmPrincipal:mes"]', String(period.month));
   await page.select('[id="frmPrincipal:dia"]', "0"); // Todos

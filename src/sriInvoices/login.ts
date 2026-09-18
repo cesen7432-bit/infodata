@@ -59,11 +59,18 @@ export async function loginToSriEnLinea(ruc: string, password: string): Promise<
     // seguiría presente. Es la señal más confiable sin depender del texto
     // exacto del mensaje de error (puede variar).
     const stillOnLoginForm = await page.$("#usuario");
+    const title = await page.title().catch(() => "?");
     if (stillOnLoginForm) {
       throw new SriInvoicesAuthError("Usuario o contraseña incorrectos, o el SRI bloqueó el inicio de sesión");
     }
 
-    logger.info("[sri-invoices] login OK", { url: page.url() });
+    logger.info("[sri-invoices] login OK", { url: page.url(), title });
+    // El redirect_uri es una ruta Angular (sri-en-linea/contribuyente/perfil)
+    // que recién intercambia el code por una sesión real de forma asíncrona
+    // al bootstrapear — si el job navega de inmediato a la app de comprobantes
+    // (JSF, otro dominio de rutas) antes de que eso termine, la sesión todavía
+    // no existe ahí. Se le da un margen fijo antes de seguir.
+    await new Promise((r) => setTimeout(r, 4000));
     return { browser, page };
   } catch (err) {
     await browser.close().catch(() => {});
