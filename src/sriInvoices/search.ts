@@ -16,7 +16,16 @@ async function setSearchFilters(page: Page, period: Period, documentType: Docume
   // fondo (polling de sesión, keepalive) que nunca deja la red "quieta" el
   // tiempo que pide esa condición. domcontentloaded + el waitForSelector de
   // abajo (que sí confirma contenido real) es más confiable.
-  await page.goto(env.SRI_INVOICES_COMPROBANTES_URL, { waitUntil: "domcontentloaded" });
+  try {
+    await page.goto(env.SRI_INVOICES_COMPROBANTES_URL, { waitUntil: "domcontentloaded" });
+  } catch (err) {
+    // ERR_ABORTED es normal acá: la página dispara una redirección propia
+    // casi de inmediato (por los parámetros de contexto/breadcrumb de la
+    // URL) y Chrome reporta la navegación original como abortada aunque en
+    // la práctica sí termina en el destino correcto — el waitForSelector de
+    // abajo es el que de verdad confirma si llegamos bien o no.
+    if (!(err as Error).message.includes("ERR_ABORTED")) throw err;
+  }
 
   try {
     await page.waitForSelector('[id="frmPrincipal:ano"]', { timeout: 30000 });
