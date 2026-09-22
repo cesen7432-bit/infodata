@@ -54,26 +54,32 @@ export async function runSriInvoiceJob(
   const { browser, page } = await loginToSriEnLinea(params.ruc, params.password);
   try {
     for (const period of monthsInRange(params.from, params.to)) {
-      totalFound += await searchInvoicesByMonth(page, period, params.documentType, async (rows) => {
-        for (const row of rows) {
-          const destDir = path.join(
-            workDir,
-            String(period.year),
-            String(period.month).padStart(2, "0"),
-            dayFromFecha(row.fechaEmision)
-          );
-          try {
-            await downloadComprobante(page, row, destDir, workDir);
-            totalDownloaded++;
-          } catch (err) {
-            logger.warn("[sri-invoices] no se pudo descargar un comprobante", {
-              claveAcceso: row.claveAcceso,
-              error: (err as Error).message,
-            });
+      totalFound += await searchInvoicesByMonth(
+        page,
+        period,
+        params.documentType,
+        { ruc: params.ruc, password: params.password },
+        async (rows) => {
+          for (const row of rows) {
+            const destDir = path.join(
+              workDir,
+              String(period.year),
+              String(period.month).padStart(2, "0"),
+              dayFromFecha(row.fechaEmision)
+            );
+            try {
+              await downloadComprobante(page, row, destDir, workDir);
+              totalDownloaded++;
+            } catch (err) {
+              logger.warn("[sri-invoices] no se pudo descargar un comprobante", {
+                claveAcceso: row.claveAcceso,
+                error: (err as Error).message,
+              });
+            }
+            await onProgress?.({ totalFound, totalDownloaded });
           }
-          await onProgress?.({ totalFound, totalDownloaded });
         }
-      });
+      );
       await onProgress?.({ totalFound, totalDownloaded });
     }
   } finally {
