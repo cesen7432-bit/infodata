@@ -116,8 +116,16 @@ function isDialogVisible(): boolean {
  * terminar (ver su onstart/onsuccess en el HTML).
  */
 async function clickConsultar(page: Page): Promise<void> {
-  const button = await page.$(CONSULTAR_BUTTON_SELECTOR);
+  // Seleccionar el tipo de comprobante dispara un postback AJAX de PrimeFaces
+  // que puede re-renderizar el botón (y momentáneamente sacarlo del DOM) —
+  // un `page.$` de una sola foto puede pegarle justo a ese hueco. waitForSelector
+  // reintenta hasta que el botón vuelva a estar, en vez de fallar de una.
+  const button = await page.waitForSelector(CONSULTAR_BUTTON_SELECTOR, { timeout: 15000 }).catch(() => null);
   if (!button) {
+    const formHtml = await page
+      .evaluate(() => document.getElementById("frmPrincipal")?.innerHTML.slice(0, 1500) ?? "(sin formulario frmPrincipal)")
+      .catch((e) => `(evaluate falló: ${(e as Error).message})`);
+    logger.error("[sri-invoices] no se encontró el botón Consultar tras seleccionar filtros", { formHtml });
     throw new Error('No se encontró el botón "Consultar" (frmPrincipal:btnConsultarSinRe) en el formulario de comprobantes recibidos');
   }
 
