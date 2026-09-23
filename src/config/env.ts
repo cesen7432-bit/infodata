@@ -40,11 +40,15 @@ const schema = z.object({
     .default("https://srienlinea.sri.gob.ec/auth/realms/Internet/protocol/openid-connect/auth"),
   SRI_INVOICES_CLIENT_ID: z.string().default("app-sri-claves-angular"),
   SRI_INVOICES_REDIRECT_URI: z.string().default("https://srienlinea.sri.gob.ec/sri-en-linea//contribuyente/perfil"),
-  SRI_INVOICES_COMPROBANTES_URL: z
+  // Ir directo a la URL del JSF (comprobantes-electronicos-internet) siempre
+  // rebota al login: esa app no tiene sesión propia hasta que se pasa por
+  // este gateway de "tuportal-internet" (el mismo que usa el link del menú
+  // real), que hace de puente de SSO entre la SPA y las apps JSF legacy y
+  // recién ahí reenvía a comprobantesRecibidos.jsf. redireccion/idGrupo son
+  // los ids fijos de ese ítem de menú, no algo por sesión.
+  SRI_INVOICES_COMPROBANTES_GATEWAY_URL: z
     .string()
-    .default(
-      "https://srienlinea.sri.gob.ec/comprobantes-electronicos-internet/pages/consultas/recibidos/comprobantesRecibidos.jsf?&contextoMPT=https://srienlinea.sri.gob.ec/tuportal-internet&pathMPT=Facturaci%F3n%20Electr%F3nica&actualMPT=Comprobantes%20electr%F3nicos%20recibidos%20&linkMPT=%2Fcomprobantes-electronicos-internet%2Fpages%2Fconsultas%2Frecibidos%2FcomprobantesRecibidos.jsf%3F&esFavorito=S"
-    ),
+    .default("https://srienlinea.sri.gob.ec/tuportal-internet/accederAplicacion.jspa?redireccion=57&idGrupo=55"),
   SRI_INVOICES_STORAGE_DIR: z.string().default("./data/sri-invoices"),
   QUEUE_CONCURRENCY_SRI_INVOICES: z.coerce.number().default(1),
 

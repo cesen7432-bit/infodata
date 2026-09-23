@@ -31,6 +31,15 @@ export async function loginToSriEnLinea(ruc: string, password: string): Promise<
     const page = await browser.newPage();
     page.setDefaultNavigationTimeout(45000);
     page.setDefaultTimeout(45000);
+    // El viewport (800x600) y el user-agent por defecto de Chromium delatan
+    // headless — algunos filtros del SRI parecen distinguir esa sesión de
+    // una real y le niegan el SSO a la app JSF de comprobantes recibidos
+    // (aunque el login inicial contra Keycloak sí funcione). Mismo user-agent
+    // que ya usa scrapers/ant/browser.ts.
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+    );
+    await page.setViewport({ width: 1366, height: 768 });
 
     logger.info("[sri-invoices] navegando a login...");
     await page.goto(buildAuthUrl(), { waitUntil: "networkidle2" });

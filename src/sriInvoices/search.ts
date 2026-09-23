@@ -28,13 +28,13 @@ async function isOnLoginForm(page: Page): Promise<boolean> {
 }
 
 /**
- * Intenta llegar a la página de comprobantes recibidos. La sesión SSO que
- * deja `loginToSriEnLinea` a veces no alcanza para esta app JSF
- * (comprobantes-electronicos-internet vive aparte de la SPA sri-en-linea) y
- * el portal manda de vuelta al mismo formulario de Keycloak — cuyo
- * `redirect_uri` apunta siempre a la página de perfil de la SPA, nunca de
- * vuelta a comprobantes, así que tras reautenticar ahí hay que repetir la
- * navegación a esta URL (no alcanza con solo volver a loguearse in situ).
+ * Llega a la página de comprobantes recibidos pasando por el gateway de
+ * "tuportal-internet" (accederAplicacion.jspa) — es el mismo link que usa el
+ * ítem de menú real ("Facturación electrónica" > "Comprobantes electrónicos
+ * recibidos"). Ir directo a la URL del JSF (comprobantes-electronicos-internet)
+ * SIEMPRE rebota al login sin importar cuántas veces se reautentique: esa app
+ * no tiene sesión propia hasta que este gateway hace de puente de SSO con la
+ * SPA y reenvía — confirmado navegando manualmente con las mismas cookies.
  */
 async function navigateToComprobantes(page: Page, credentials: { ruc: string; password: string }): Promise<void> {
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -43,12 +43,12 @@ async function navigateToComprobantes(page: Page, credentials: { ruc: string; pa
     // tiempo que pide esa condición. domcontentloaded + el waitForSelector de
     // más abajo (que sí confirma contenido real) es más confiable.
     try {
-      await page.goto(env.SRI_INVOICES_COMPROBANTES_URL, { waitUntil: "domcontentloaded" });
+      await page.goto(env.SRI_INVOICES_COMPROBANTES_GATEWAY_URL, { waitUntil: "domcontentloaded" });
     } catch (err) {
       // ERR_ABORTED es normal acá: la página dispara una redirección propia
-      // casi de inmediato (por los parámetros de contexto/breadcrumb de la
-      // URL) y Chrome reporta la navegación original como abortada aunque en
-      // la práctica sí termina en el destino correcto.
+      // casi de inmediato (el gateway reenvía al JSF real) y Chrome reporta
+      // la navegación original como abortada aunque en la práctica sí
+      // termina en el destino correcto.
       if (!(err as Error).message.includes("ERR_ABORTED")) throw err;
     }
 
@@ -56,11 +56,10 @@ async function navigateToComprobantes(page: Page, credentials: { ruc: string; pa
     if (!onLoginForm) return; // llegamos a comprobantes (o a donde sea que no sea el login)
     if (attempt === 2) return; // se deja que el waitForSelector de abajo falle y loguee el diagnóstico
 
+    // Por si la sesión de Keycloak sí llegó a expirar entre el login y acá
+    // (poco probable dado lo cerca en el tiempo, pero gratis de cubrir).
     logger.warn("[sri-invoices] la navegación a comprobantes recibidos volvió al login — reautenticando", { attempt });
     await submitCredentials(page, credentials.ruc, credentials.password);
-    // Igual que en el login inicial: el redirect_uri es la SPA de perfil, que
-    // recién intercambia el code por sesión real de forma asíncrona — hay
-    // que dar el mismo margen antes de reintentar la navegación a comprobantes.
     await new Promise((r) => setTimeout(r, 4000));
   }
 }
