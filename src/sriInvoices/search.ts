@@ -8,6 +8,26 @@ const TABLE_DATA_SELECTOR = '[id="frmPrincipal:tablaCompRecibidos_data"]';
 const PAGE_SIZE = "75"; // el máximo que ofrece el propio selector del paginador
 
 /**
+ * `page.$` justo después de un `goto` puede reventar con "Protocol error
+ * (DOM.describeNode): Cannot find context with specified id" — el sitio
+ * encadena su propia redirección apenas dispara "domcontentloaded" (ver
+ * comentario del ERR_ABORTED más abajo) y eso destruye el contexto de
+ * ejecución a mitad de la consulta. Un reintento con un margen corto le da
+ * tiempo a que el frame termine de asentarse.
+ */
+async function isOnLoginForm(page: Page): Promise<boolean> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return !!(await page.$("#usuario"));
+    } catch (err) {
+      if (attempt === 3) throw err;
+      await new Promise((r) => setTimeout(r, 800));
+    }
+  }
+  return false;
+}
+
+/**
  * Intenta llegar a la página de comprobantes recibidos. La sesión SSO que
  * deja `loginToSriEnLinea` a veces no alcanza para esta app JSF
  * (comprobantes-electronicos-internet vive aparte de la SPA sri-en-linea) y
@@ -32,7 +52,7 @@ async function navigateToComprobantes(page: Page, credentials: { ruc: string; pa
       if (!(err as Error).message.includes("ERR_ABORTED")) throw err;
     }
 
-    const onLoginForm = await page.$("#usuario");
+    const onLoginForm = await isOnLoginForm(page);
     if (!onLoginForm) return; // llegamos a comprobantes (o a donde sea que no sea el login)
     if (attempt === 2) return; // se deja que el waitForSelector de abajo falle y loguee el diagnóstico
 
